@@ -9,6 +9,7 @@ import pandas as pd      # Helps organize data in rows/columns like Excel
 import warnings          # Used to hide unnecessary warnings
 import logging           # Controls background log messages
 from datetime import datetime  # Used to get today's date
+from pathlib import Path
 
 # Suppress unnecessary Yahoo Finance warnings
 logging.getLogger('yfinance').setLevel(logging.CRITICAL)
@@ -218,9 +219,16 @@ else:
         print("| " + " | ".join(str(row[col]).ljust(col_widths[col]) for col in df.columns) + " |")
     print(sep)
 
-    # TODO fix later
-    # Excel export (kept for future use, commented out)
-    # positive_breakout_data.to_excel("Final_Breakout_List.xlsx", index=False)
-    # print("\nSaved as 'Final_Breakout_List.xlsx'")
+    # Excel export: save breakout list to data/out with timestamped filename
+    try:
+        now_str = datetime.now().strftime("%Y%m%d%H%M")
+        output_dir = Path(__file__).resolve().parents[2] / "data" / "out"
+        output_dir.mkdir(parents=True, exist_ok=True)
+        file_path = output_dir / f"Breakout_{now_str}.xlsx"
+        # Use the original DataFrame (not the string-cast copy) for export
+        positive_breakout_data.to_excel(file_path, index=False)
+        print(f"\nSaved as '{file_path}'")
+    except Exception as e:
+        print(f"\nFailed to save Excel file: {e}")
 
 
