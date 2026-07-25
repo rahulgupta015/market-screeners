@@ -23,6 +23,16 @@ Advanced stock breakout scanner using technical analysis (DMAs, CAR, 52-week hig
 uv run python src/dsm/stock-screener.py
 ```
 
+### Logic
+
+1. Downloads 2 years of daily price data for each stock
+2. Calculates 30, 50, 100, and 200-day moving averages (DMA)
+3. Finds the 52-week high date and CAR (Cumulative Average Return) since that date
+4. Checks if CAR is rising over the last 10 days (Positive trend)
+5. Identifies breakouts: CMP > all DMAs, within 20% of 200 DMA, and CAR positive
+6. Returns sorted list by distance from 200 DMA
+7. Exports results to Excel with timestamp
+
 ### Output
 
 - **Console**: Formatted table of breakout stocks
