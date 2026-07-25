@@ -25,6 +25,10 @@ uv run python src/dsm/stock-screener.py
 
 ### Logic
 
+> **Reference**: Stock screener logic adapted from [Mahesh Kaushik's Scanner](https://www.maheshkaushik.com/2026/07/trading-free-google-colab-scanner-code.html)
+> 
+> Thank you to Mahesh Kaushik for this wonderful stock screener logic!
+
 1. Downloads 2 years of daily price data for each stock
 2. Calculates 30, 50, 100, and 200-day moving averages (DMA)
 3. Finds the 52-week high date and CAR (Cumulative Average Return) since that date

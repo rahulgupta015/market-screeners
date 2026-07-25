@@ -1,6 +1,5 @@
 # -------------------------------------------------------------------------
 # CAR (Cumulative Average) + 30, 50, 100, 200 DMA Super Breakout Scanner
-# Reference: https://www.maheshkaushik.com/2026/07/trading-free-google-colab-scanner-code.html
 # -------------------------------------------------------------------------
 
 # Importing required libraries
