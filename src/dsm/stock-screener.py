@@ -177,23 +177,23 @@ ETF = [
 
 OTHERS = ["BSX", "BULL", "DJT", "INFY", "SOFI"]
 
-# my_stocks = (
-#     SP500_NASDAQ_OVER_200B
-#     + SP500_NASDAQ_BETWEEN_100B_200B
-#     + SP500_NASDAQ_BETWEEN_50B_100B
-#     + SP500_NASDAQ_BETWEEN_10B_50B
-#     + LEVERAGED
-#     + ETF
-#     + OTHERS
-# )
-
-# a small list of stocks for testing purpose
-FOR_TESTING = ["WFC", "AIG", "UPS", "IQV", "WAT"]
-
-# for testing only
 my_stocks = (
-        FOR_TESTING
+    SP500_NASDAQ_OVER_200B
+    + SP500_NASDAQ_BETWEEN_100B_200B
+    + SP500_NASDAQ_BETWEEN_50B_100B
+    + SP500_NASDAQ_BETWEEN_10B_50B
+    + LEVERAGED
+    + ETF
+    + OTHERS
 )
+
+# # a small list of stocks for testing purpose
+# FOR_TESTING = ["WFC", "AIG", "UPS", "IQV", "WAT"]
+#
+# # for testing only
+# my_stocks = (
+#         FOR_TESTING
+# )
 
 
 positive_breakout_data = advanced_stock_scanner(my_stocks)
