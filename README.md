@@ -20,6 +20,16 @@ Advanced stock breakout scanner using technical analysis (DMAs, CAR, 52-week hig
 ### Run from Project Root
 
 ```bash
+uv run python -m dsm
+```
+
+**Test Mode** (fast testing with 5 stocks):
+```bash
+uv run python -m dsm --test
+```
+
+Or with the legacy command:
+```bash
 uv run python src/dsm/stock-screener.py
 ```
 
@@ -37,7 +47,36 @@ uv run python src/dsm/stock-screener.py
 6. Returns sorted list by distance from 200 DMA
 7. Exports results to Excel with timestamp
 
+### Testing
+
+Test with a small set of stocks to verify changes quickly:
+
+```bash
+uv run python -m dsm --test
+```
+
+This scans 5 stocks: WFC, AIG, NDAQ, OMC, IQV (defined in `src/dsm/config.py`).
+
+Edit `FOR_TESTING` in `src/dsm/config.py` to customize the test set.
+
 ### Output
 
 - **Console**: Formatted table of breakout stocks
-- **Excel**: `data/out/Breakout_YYYYMMDDHHmm.xlsx`
+- **Excel**: `data/outputs/Breakout_YYYYMMDDHHmm.xlsx`
+
+### Project Structure
+
+```
+src/dsm/
+  ├── main.py              # Entry point
+  ├── config.py            # Stock lists & configuration
+  ├── screeners/           # Screener modules
+  │   └── stock.py         # Stock breakout screener
+  └── utils/               # Utility functions
+data/
+  ├── inputs/              # Input data files
+  └── outputs/             # Generated results
+tests/                      # Unit & integration tests
+logs/                       # Application logs
+scripts/                    # Utility scripts
+```

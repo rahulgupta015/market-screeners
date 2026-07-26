@@ -1,7 +1,7 @@
 [project]
 name = "dsm"
 version = "0.1.0"
-description = "Add your description here"
+description = "Daily Stock Monitor - Advanced stock breakout scanner using technical analysis"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
@@ -11,3 +11,6 @@ dependencies = [
     "pandas>=3.0.5",
     "yfinance>=1.5.2",
 ]
+
+[project.scripts]
+dsm = "dsm.main:main"
