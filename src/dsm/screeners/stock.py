@@ -9,6 +9,7 @@ import warnings
 import logging
 from datetime import datetime
 from pathlib import Path
+from dsm.config import get_ticker_category
 
 # Suppress unnecessary Yahoo Finance warnings
 logging.getLogger('yfinance').setLevel(logging.CRITICAL)
@@ -83,9 +84,11 @@ def scan_breakouts(ticker_list):
 
             # Store only breakout stocks
             if action == 'Breakout':
+                category = get_ticker_category(ticker)
                 results.append({
                     'Date': today_date,
                     'Stock': ticker,
+                    'Category': category,
                     'CMP': round(cmp, 2),
                     '30 DMA': round(dma_30, 2),
                     '50 DMA': round(dma_50, 2),
@@ -125,23 +128,42 @@ def export_to_excel(df, output_dir="data/outputs"):
 
 
 def print_results(df):
-    """Print results in formatted table"""
+    """Print results grouped by market cap category, sorted by Shift %"""
     if df.empty:
         print("No stock passed all breakout conditions today.")
         return
 
-    df_str = df.copy().astype(str)
-
-    # Compute column widths
-    col_widths = {col: max(len(col), df_str[col].map(len).max()) for col in df_str.columns}
-
-    # Build separator and header
-    sep = "+-" + "-+-".join("-" * col_widths[col] for col in df_str.columns) + "-+"
-    header = "| " + " | ".join(col.ljust(col_widths[col]) for col in df_str.columns) + " |"
-
-    print(sep)
-    print(header)
-    print(sep)
-    for _, row in df_str.iterrows():
-        print("| " + " | ".join(str(row[col]).ljust(col_widths[col]) for col in df_str.columns) + " |")
-    print(sep)
+    from dsm.config import CATEGORY_DISPLAY_NAMES
+    
+    # Group by category, maintaining the order
+    category_order = ["OVER_200B", "BETWEEN_100B_200B", "BETWEEN_50B_100B", "BELOW_50B", "ETF_OVER_1B", "LEVERAGED", "OTHERS"]
+    
+    for category in category_order:
+        category_df = df[df['Category'] == category].copy()
+        
+        if category_df.empty:
+            continue
+        
+        # Sort by Shift % within category
+        category_df = category_df.sort_values(by='Shift %', ascending=True)
+        
+        # Print category header
+        display_name = CATEGORY_DISPLAY_NAMES.get(category, category)
+        print(f"\n{display_name}:")
+        
+        # Convert to strings for printing
+        df_str = category_df.astype(str)
+        
+        # Compute column widths
+        col_widths = {col: max(len(col), df_str[col].map(len).max()) for col in df_str.columns}
+        
+        # Build separator and header
+        sep = "+-" + "-+-".join("-" * col_widths[col] for col in df_str.columns) + "-+"
+        header = "| " + " | ".join(col.ljust(col_widths[col]) for col in df_str.columns) + " |"
+        
+        print(sep)
+        print(header)
+        print(sep)
+        for _, row in df_str.iterrows():
+            print("| " + " | ".join(str(row[col]).ljust(col_widths[col]) for col in df_str.columns) + " |")
+        print(sep)
