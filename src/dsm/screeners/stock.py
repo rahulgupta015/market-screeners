@@ -2,6 +2,7 @@
 # CAR (Cumulative Average) + 30, 50, 100, 200 DMA Super Breakout Scanner
 # Reference: https://www.maheshkaushik.com/2026/07/trading-free-google-colab-scanner-code.html
 # -------------------------------------------------------------------------
+from operator import truediv
 
 import yfinance as yf
 import pandas as pd
@@ -22,7 +23,7 @@ def scan_breakouts(ticker_list):
     Returns a DataFrame of stocks that meet all breakout conditions.
     """
     results = []
-    today_date = datetime.now().strftime("%d-%m-%Y")
+    today_date = datetime.now().strftime("%b-%d-%Y")
 
     print(f"Scanning {len(ticker_list)} stocks... Please wait.\n")
 
@@ -52,7 +53,7 @@ def scan_breakouts(ticker_list):
             last_1y_data = data.tail(252)
             high_series = last_1y_data['High'].squeeze()
             high_date = high_series.idxmax()
-            high_date_str = pd.Timestamp(high_date).strftime("%d-%m-%Y")
+            high_date_str = pd.Timestamp(high_date).strftime("%b-%d-%Y")
 
             # CAR (Cumulative Average) since high date
             car_data = close_prices.loc[high_date:]
@@ -62,61 +63,75 @@ def scan_breakouts(ticker_list):
 
             car_values = car_data.expanding().mean()
             last_10_car = car_values.tail(10)
+            last_9_car = car_values.tail(9)
+            last_8_car = car_values.tail(8)
+            last_7_car = car_values.tail(7)
 
-            # Trend Check — CAR must be rising for last 10 days
+            # CAR Trend Ladder
             if last_10_car.is_monotonic_increasing:
-                car_status = 'Positive'
+                car_status = 10
+            elif last_9_car.is_monotonic_increasing:
+                car_status = 9
+            elif last_8_car.is_monotonic_increasing:
+                car_status = 8
+            elif last_7_car.is_monotonic_increasing:
+                car_status = 7
             else:
-                car_status = 'Negative'
+                car_status = 0
 
-            # Breakout Conditions
+            # Display condition
             if (
                     cmp > dma_30 and
                     cmp > dma_50 and
                     cmp > dma_100 and
                     cmp > dma_200 and
-                    dist_200_dma <= 20 and
-                    car_status == 'Positive'
+                    0.01 <= dist_200_dma <= 20 and
+                    car_status >= 7
+            ):
+                display = 1
+            else:
+                display = 0
+
+            # Breakout Conditions
+            if (
+                    display == 1 and
+                    car_status == 10
             ):
                 action = 'Breakout'
             else:
-                action = 'Avoid/Hold'
+                action = 'Avoid'
 
-            # Store only breakout stocks
-            if action == 'Breakout':
+            # Store only candidates with display = 1
+            if display == 1:
                 category = get_ticker_category(ticker)
                 results.append({
                     'Date': today_date,
                     'Stock': ticker,
                     'Category': category,
                     'CMP': round(cmp, 2),
+                    'YHD': high_date_str,
                     '30 DMA': round(dma_30, 2),
                     '50 DMA': round(dma_50, 2),
                     '100 DMA': round(dma_100, 2),
                     '200 DMA': round(dma_200, 2),
+                    'Action': action,
+                    'CAR Score': car_status,
                     'Shift %': round(dist_200_dma, 2),
-                    'YHD': high_date_str,
-                    'CAR Status': car_status,
-                    'Action': action
                 })
 
         except Exception:
             pass
 
     # Convert results to DataFrame
-    df_positive = pd.DataFrame(results)
+    df_results = pd.DataFrame(results)
 
-    # Sort by distance from 200 DMA
-    if not df_positive.empty:
-        df_positive = df_positive.sort_values(by='Shift %', ascending=True)
-
-    return df_positive
+    return df_results
 
 
 def export_to_excel(df, output_dir="data/outputs"):
     """Export results to timestamped Excel file"""
     try:
-        now_str = datetime.now().strftime("%Y%m%d%H%M")
+        now_str = datetime.now().strftime("%Y-%b-%d_%H-%M")
         out_path = Path(output_dir)
         out_path.mkdir(parents=True, exist_ok=True)
         file_path = out_path / f"Breakout_{now_str}.xlsx"
@@ -128,39 +143,39 @@ def export_to_excel(df, output_dir="data/outputs"):
 
 
 def print_results(df):
-    """Print results grouped by market cap category, sorted by Shift %"""
+    """Print results grouped by market cap category, sorted by CAR Score (desc) then Shift % (asc)."""
     if df.empty:
-        print("No stock passed all breakout conditions today.")
+        print("No stock passed candidate conditions today.")
         return
 
     from dsm.config import CATEGORY_DISPLAY_NAMES
-    
+
     # Group by category, maintaining the order
     category_order = ["OVER_200B", "BETWEEN_100B_200B", "BETWEEN_50B_100B", "BELOW_50B", "ETF_OVER_1B", "LEVERAGED", "OTHERS"]
-    
+
     for category in category_order:
         category_df = df[df['Category'] == category].copy()
-        
+
         if category_df.empty:
             continue
-        
-        # Sort by Shift % within category
-        category_df = category_df.sort_values(by='Shift %', ascending=True)
-        
+
+        # Sort by Action desc (Breakout first), CAR Score desc, Shift % asc
+        category_df = category_df.sort_values(by=['Action', 'CAR Score', 'Shift %'], ascending=[False, False, True])
+
         # Print category header
         display_name = CATEGORY_DISPLAY_NAMES.get(category, category)
         print(f"\n{display_name}:")
-        
+
         # Convert to strings for printing
         df_str = category_df.astype(str)
-        
+
         # Compute column widths
         col_widths = {col: max(len(col), df_str[col].map(len).max()) for col in df_str.columns}
-        
+
         # Build separator and header
         sep = "+-" + "-+-".join("-" * col_widths[col] for col in df_str.columns) + "-+"
         header = "| " + " | ".join(col.ljust(col_widths[col]) for col in df_str.columns) + " |"
-        
+
         print(sep)
         print(header)
         print(sep)
