@@ -15,7 +15,7 @@ logging.getLogger('yfinance').setLevel(logging.CRITICAL)
 warnings.filterwarnings('ignore')
 
 TICKERS = [
-    "NFXL", "ORCX", "BSX", "IBIT", "BULL", "INFY", "MSFU", "METU",
+    "NFXL", "ORCX", "BSX", "IBIT", "BULL", "INFY", "MSFU", "METU", "ADP",
 ]
 
 # TICKERS = [
