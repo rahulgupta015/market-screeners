@@ -13,14 +13,8 @@ logging.getLogger('yfinance').setLevel(logging.CRITICAL)
 warnings.filterwarnings('ignore')
 
 TICKERS = [
-    # Large Cap Tech
     "MSFT", "META", "NVDA", "AVGO", "AAPL", "GOOGL", "AMZN",
-    # Finance
-    "JPM", "GS", "BAC",
-    # Healthcare
-    "BSX", "UNH", "JNJ",
-    # Others
-    "INFY", "TCS.NS", "RELIANCE.NS",
+    "JPM", "BSX", "INFY", "IBIT", "BULL",
 ]
 
 GREEN = "🟢"
@@ -137,7 +131,9 @@ def print_results(results):
         return
 
     df = pd.DataFrame(results)
-    df_str = df.astype(str)
+
+    # FIX: convert NaN/floats safely to strings
+    df_str = df.fillna("").astype(str)
 
     # Column widths accounting for emoji (they render as 2 chars wide in most terminals)
     col_widths = {}
