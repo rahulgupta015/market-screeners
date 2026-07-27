@@ -15,9 +15,13 @@ logging.getLogger('yfinance').setLevel(logging.CRITICAL)
 warnings.filterwarnings('ignore')
 
 TICKERS = [
-    "MSFT", "META", "NVDA", "AVGO", "AAPL", "GOOGL", "AMZN",
-    "JPM", "BSX", "INFY", "IBIT", "BULL",
+    "NFXL", "ORCX", "BSX", "IBIT", "BULL", "INFY", "MSFU", "METU",
 ]
+
+# TICKERS = [
+#     "MSFT", "META", "NVDA", "AVGO", "AAPL", "GOOGL", "AMZN",
+#     "JPM", "BSX", "INFY", "IBIT", "BULL",
+# ]
 
 GREEN = "🟢"
 RED  = "🔴"
@@ -169,7 +173,7 @@ def print_results(results):
         print("No results to display.")
         return
 
-    df = pd.DataFrame(results).fillna("").astype(str)
+    df = pd.DataFrame(results).fillna("").astype(str).sort_values(by='Stock')
 
     # Define display order and which columns have a trailing dot column
     display_cols = [
