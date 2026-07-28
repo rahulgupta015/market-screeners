@@ -146,12 +146,63 @@ def shift_color(shift_pct):
 
 
 def get_market_cap_billions(ticker):
-    """Fetch market cap from yfinance and return it in $ Billions, or None."""
+    """
+    Fetch market cap (stocks) / AUM (ETFs) and return it in $ Billions,
+    or None if unavailable.
+
+    yfinance's fast_info exposes fields under different names depending on
+    version (e.g. attribute `market_cap` vs dict key `marketCap`), so both
+    styles are tried. ETFs frequently don't carry a market cap at all —
+    their size is reported as "total assets" (AUM), which lives in the
+    slower `.info` dict as `totalAssets`.
+    """
     try:
-        info = yf.Ticker(ticker).info
+        t = yf.Ticker(ticker)
+
+        try:
+            fast = t.fast_info
+        except Exception:
+            fast = None
+
+        def fast_get(*keys):
+            """Try several key names, both dict-style and attribute-style."""
+            if fast is None:
+                return None
+            for k in keys:
+                try:
+                    v = fast[k]
+                    if v is not None:
+                        return v
+                except Exception:
+                    pass
+                v = getattr(fast, k, None)
+                if v is not None:
+                    return v
+            return None
+
+        # 1) Direct market cap (works for most regular stocks)
+        mcap = fast_get("market_cap", "marketCap")
+        if mcap:
+            return round(mcap / 1e9, 2)
+
+        # 2) price * shares outstanding (fallback, when available)
+        price = fast_get("last_price", "lastPrice")
+        shares = fast_get("shares_outstanding", "sharesOutstanding", "shares")
+        if price is not None and shares is not None:
+            computed = price * shares
+            if computed:
+                return round(computed / 1e9, 2)
+
+        # 3) Slower .info dict: marketCap for stocks, totalAssets (AUM) for ETFs
+        info = t.info
         mcap = info.get("marketCap")
         if mcap:
             return round(mcap / 1e9, 2)
+
+        aum = info.get("totalAssets")
+        if aum:
+            return round(aum / 1e9, 2)
+
     except Exception:
         pass
     return None

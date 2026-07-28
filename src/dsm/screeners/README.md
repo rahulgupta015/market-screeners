@@ -11,8 +11,12 @@ cell is simply left blank rather than guessed at or omitted from the table.
 `Stock, Market Cap ($B), CMP, DMA Alignment BO, CAR BO, 30 DMA, 50 DMA, 100 DMA, 200 DMA, Shift % From 200 DMA, CAR, Zone, 52W High, 52W Low, Days Since 52W Low`
 
 Rows are sorted by ticker. The current date is printed above the table.
-Market cap is pulled from yfinance (`Ticker.info["marketCap"]`) and shown in
-$ Billions.
+Market cap / AUM is pulled from yfinance and shown in $ Billions.
+`get_market_cap_billions()` tries, in order: (1) `fast_info` market cap
+(both attribute- and dict-style key names, since yfinance versions
+differ), (2) `fast_info` price × shares outstanding, (3) `.info["marketCap"]`,
+and (4) `.info["totalAssets"]` — the AUM field Yahoo Finance uses for ETFs.
+Left blank if none of these are available.
 
 ## Zone
 
@@ -99,7 +103,9 @@ year of history is available):
 - `safe_dma(close_prices, window)` — rolling DMA, or `None` if insufficient data.
 - `compute_car(close_prices, high_date)` — returns the CAR score.
 - `get_zone(cmp, dma50, dma100, dma200)` — returns the Zone label.
-- `get_market_cap_billions(ticker)` — fetches market cap in $B via yfinance.
+- `get_market_cap_billions(ticker)` — fetches market cap / AUM in $B via
+  yfinance, trying `fast_info` (both key-casing styles) then falling back
+  to `.info["marketCap"]` / `.info["totalAssets"]` (ETF AUM).
 - `scan_all(ticker_list)` — loops every ticker, builds one row per stock
   (never skips a stock; blanks whatever can't be calculated).
 - `print_results(results)` — renders the final table, date header included.
