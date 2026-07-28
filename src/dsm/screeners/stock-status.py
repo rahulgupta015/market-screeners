@@ -1,10 +1,12 @@
 # -------------------------------------------------------------------------
-# CAR + DMA Status Scanner (All Tickers, Console Print, No Filters)
+# CAR + DMA + Zone Status Scanner (All Tickers, Console Print, No Filters)
 # Reference: https://www.maheshkaushik.com/2026/07/trading-free-google-colab-scanner-code.html
+# Logic reference: README.md (same folder)
 # -------------------------------------------------------------------------
 # Run command:
 # uv run src/dsm/screeners/stock-status.py
 
+import re
 import yfinance as yf
 import pandas as pd
 import warnings
@@ -24,47 +26,183 @@ TICKERS = [
 #     "JPM", "BSX", "INFY", "IBIT", "BULL",
 # ]
 
-GREEN = "🟢"
-RED  = "🔴"
-YELLOW = "🟡"
+# ---------------------------------------------------------------------
+# ANSI colors used for console output (supported by most modern
+# terminals, including Windows Terminal / VS Code integrated terminal).
+# ---------------------------------------------------------------------
+RESET        = "\033[0m"
+RED          = "\033[91m"
+GREEN        = "\033[92m"
+YELLOW       = "\033[93m"
+ORANGE       = "\033[38;5;208m"
+PURPLE       = "\033[38;5;135m"
+FLUOR_GREEN  = "\033[38;5;46m"
+FLUOR_ORANGE = "\033[38;5;202m"
+
+GREEN_DOT         = f"{GREEN}\u25cf{RESET}"        # ●
+GREEN_CHECK       = f"{GREEN}\u2714{RESET}"        # ✔ (DMA Alignment BO)
+FLUOR_GREEN_CHECK = f"{FLUOR_GREEN}\u2714{RESET}"  # ✔ (CAR BO)
+
+ANSI_RE = re.compile(r'\033\[[0-9;]*m')
 
 
+def visible_len(s):
+    """Length of a string ignoring ANSI color escape codes."""
+    return len(ANSI_RE.sub('', s))
+
+
+def vjust(s, width):
+    """Left-justify a (possibly ANSI-colored) string to a visible width."""
+    pad = width - visible_len(s)
+    return s + (" " * pad if pad > 0 else "")
+
+
+def colorize(value_str, color):
+    """Wrap a value string in a color, leaving blanks/dashes uncolored."""
+    if not value_str or value_str == "-":
+        return value_str
+    return f"{color}{value_str}{RESET}"
+
+
+# ---------------------------------------------------------------------
+# Calculation helpers
+# ---------------------------------------------------------------------
 def safe_dma(close_prices, window):
     """Return the rolling DMA value or None if not enough data."""
     if len(close_prices) >= window:
-        return close_prices.rolling(window).mean().iloc[-1]
+        return float(close_prices.rolling(window).mean().iloc[-1])
     return None
 
 
-def compute_car_score(car_values):
+def compute_car(close_prices, high_date):
     """
-    CAR score: largest N (10 down to 1) for which the last N values
-    are monotonically increasing. Returns 0 if none qualify.
+    Calculate and return the CAR score.
+
+    Starting from the 52-week-high date, take the expanding mean of the
+    closing prices, then find the largest N (10 down to 1) for which the
+    last N expanding-mean values are monotonically increasing.
+    Returns 0 if it cannot be calculated or none qualify.
     """
+    car_data = close_prices.loc[high_date:]
+    if len(car_data) < 2:
+        return 0
+    car_values = car_data.expanding().mean()
     for n in range(10, 0, -1):
         if len(car_values) >= n and car_values.tail(n).is_monotonic_increasing:
             return n
     return 0
 
 
+def get_zone(cmp, dma50, dma100, dma200):
+    """
+    Return the Zone label given CMP and the 50/100/200 DMAs.
+
+      BULLISH          : CMP > 50 > 100 > 200 DMA AND CMP > 1.10 * 200 DMA
+      ENTERING BULLISH  : CMP > 50 > 100 > 200 DMA AND 200 DMA < CMP <= 1.10 * 200 DMA
+      ENTERING BEARISH  : CMP < 50 < 100 < 200 DMA AND 0.90 * 200 DMA <= CMP < 200 DMA
+      BEARISH           : CMP < 50 < 100 < 200 DMA AND CMP < 0.90 * 200 DMA
+      UNCONFIRMED       : anything else (incl. missing DMAs / not stacked cleanly)
+    """
+    if dma50 is None or dma100 is None or dma200 is None:
+        return "UNCONFIRMED"
+
+    bullish_stack = cmp > dma50 > dma100 > dma200
+    bearish_stack = cmp < dma50 < dma100 < dma200
+
+    if bullish_stack and cmp > 1.10 * dma200:
+        return "BULLISH"
+    if bullish_stack and dma200 < cmp <= 1.10 * dma200:
+        return "ENTERING BULLISH"
+    if bearish_stack and cmp < 0.90 * dma200:
+        return "BEARISH"
+    if bearish_stack and 0.90 * dma200 <= cmp < dma200:
+        return "ENTERING BEARISH"
+    return "UNCONFIRMED"
+
+
+ZONE_COLOR = {
+    "BULLISH":         PURPLE,
+    "ENTERING BULLISH": GREEN,
+    "UNCONFIRMED":      YELLOW,
+    "ENTERING BEARISH": ORANGE,
+    "BEARISH":          RED,
+}
+
+
+def car_color(score):
+    if score <= 1:
+        return RED
+    if score <= 4:
+        return FLUOR_ORANGE
+    if score <= 7:
+        return YELLOW
+    return GREEN
+
+
+def shift_color(shift_pct):
+    if shift_pct > 10:
+        return PURPLE
+    if shift_pct >= 0.1:
+        return GREEN
+    if shift_pct >= -10:
+        return YELLOW
+    return RED
+
+
+def get_market_cap_billions(ticker):
+    """Fetch market cap from yfinance and return it in $ Billions, or None."""
+    try:
+        info = yf.Ticker(ticker).info
+        mcap = info.get("marketCap")
+        if mcap:
+            return round(mcap / 1e9, 2)
+    except Exception:
+        pass
+    return None
+
+
+# ---------------------------------------------------------------------
+# Scan
+# ---------------------------------------------------------------------
 def scan_all(ticker_list):
     results = []
-    today_date = datetime.now().strftime("%b-%d-%Y")
-
     print(f"Processing {len(ticker_list)} stocks...\n")
 
     for ticker in ticker_list:
+        row = {
+            "Stock": ticker,
+            "Market Cap ($B)": "-",
+            "CMP": "-",
+            "DMA Alignment BO": "",
+            "CAR BO": "",
+            "30 DMA": "-",
+            "50 DMA": "-",
+            "100 DMA": "-",
+            "200 DMA": "-",
+            "Shift %": "-",
+            "CAR": "-",
+            "Zone": "-",
+            "52W High": "-",
+            "52W Low": "-",
+            "Days Since 52W Low": "-",
+        }
+
         try:
             data = yf.download(ticker, period="2y", interval="1d", progress=False)
 
             if data.empty:
-                print(f"  [SKIP] {ticker}: no data returned")
+                print(f"  [WARN] {ticker}: no data returned")
+                results.append(row)
                 continue
 
-            # squeeze() collapses MultiIndex columns to a plain Series
             close_prices = data["Close"].squeeze()
+            cmp = float(close_prices.iloc[-1])
+            row["CMP"] = f"{round(cmp, 2)}"
 
-            cmp = close_prices.iloc[-1]
+            # Market cap (best-effort; leave blank if unavailable)
+            mcap_b = get_market_cap_billions(ticker)
+            if mcap_b is not None:
+                row["Market Cap ($B)"] = f"{mcap_b}"
 
             # DMAs
             dma_30  = safe_dma(close_prices, 30)
@@ -72,154 +210,106 @@ def scan_all(ticker_list):
             dma_100 = safe_dma(close_prices, 100)
             dma_200 = safe_dma(close_prices, 200)
 
-            # Shift % from 200 DMA
-            dist_200_dma = ((cmp - dma_200) / dma_200) * 100 if dma_200 else None
+            for label, dma_val in (("30 DMA", dma_30), ("50 DMA", dma_50),
+                                    ("100 DMA", dma_100), ("200 DMA", dma_200)):
+                if dma_val is not None:
+                    cell = f"{round(dma_val, 2)}"
+                    if cmp > dma_val:
+                        cell += f" {GREEN_DOT}"
+                    row[label] = cell
 
-            # 52-week high/low dates
+            # Shift % from 200 DMA
+            shift_pct = ((cmp - dma_200) / dma_200) * 100 if dma_200 else None
+            if shift_pct is not None:
+                row["Shift %"] = colorize(f"{round(shift_pct, 2)}", shift_color(shift_pct))
+
+            # Zone (based on DMA stack + CMP only)
+            zone = get_zone(cmp, dma_50, dma_100, dma_200)
+            row["Zone"] = colorize(zone, ZONE_COLOR.get(zone, ""))
+
+            # 52-week high/low, CAR score, days since 52W low
+            # (all require a full year of history; left blank otherwise)
+            car_score = None
             if len(data) >= 252:
                 last_1y = data.tail(252)
                 high_series = last_1y["High"].squeeze()
                 low_series = last_1y["Low"].squeeze()
+
                 high_date = high_series.idxmax()
                 low_date = low_series.idxmin()
-                high_date_str = pd.Timestamp(high_date).strftime("%b-%d-%Y")
-                low_date_str = pd.Timestamp(low_date).strftime("%b-%d-%Y")
-                car_data = close_prices.loc[high_date:]
-            else:
-                high_date_str = "-"
-                low_date_str = "-"
-                car_data = pd.Series(dtype=float)
+                week52_high = float(high_series.max())
+                week52_low = float(low_series.min())
 
-            # CAR score
-            if len(car_data) < 2:
-                car_score = 0
-            else:
-                car_values = car_data.expanding().mean()
-                car_score = compute_car_score(car_values)
+                row["52W High"] = f"{round(week52_high, 2)}"
+                row["52W Low"] = f"{round(week52_low, 2)}"
 
-            # Dots: green if CMP > DMA, red otherwise
-            dot_30  = GREEN if dma_30  is not None and cmp > dma_30  else RED
-            dot_50  = GREEN if dma_50  is not None and cmp > dma_50  else RED
-            dot_100 = GREEN if dma_100 is not None and cmp > dma_100 else RED
-            dot_200 = GREEN if dma_200 is not None and cmp > dma_200 else RED
-            dot_shift = GREEN if dist_200_dma is not None and 0.01 <= dist_200_dma <= 20 else RED
-            # CAR dot: yellow if 1-9, green if 10, red otherwise
-            if car_score == 10:
-                dot_car = GREEN
-            elif 1 <= car_score <= 9:
-                dot_car = YELLOW
-            else:
-                dot_car = RED
+                car_score = compute_car(close_prices, high_date)
+                row["CAR"] = colorize(f"{car_score}", car_color(car_score))
 
-            # 52W low after high? show green dot if low_date > high_date
-            if high_date_str != "-" and low_date_str != "-":
-                try:
-                    low_after_high = low_date > high_date
-                    dot_low_order = GREEN if low_after_high else RED
-                except Exception:
-                    dot_low_order = ""
-            else:
-                dot_low_order = ""
+                # Days since 52W low: positive if the low occurred after the
+                # 52W high, negative otherwise. Green dot when positive.
+                days_since_low = (datetime.now().date() - pd.Timestamp(low_date).date()).days
+                if pd.Timestamp(low_date) < pd.Timestamp(high_date):
+                    days_since_low = -days_since_low
 
-            results.append({
-                "Date":          today_date,
-                "Stock":         ticker,
-                "CMP":           f"{round(float(cmp), 2)}",
-                "30 DMA":        f"{round(float(dma_30),  2) if dma_30  is not None else '-'}",
-                "30 DOT":        dot_30,
-                "50 DMA":        f"{round(float(dma_50),  2) if dma_50  is not None else '-'}",
-                "50 DOT":        dot_50,
-                "100 DMA":       f"{round(float(dma_100), 2) if dma_100 is not None else '-'}",
-                "100 DOT":       dot_100,
-                "200 DMA":       f"{round(float(dma_200), 2) if dma_200 is not None else '-'}",
-                "200 DOT":       dot_200,
-                "Shift %":       f"{round(float(dist_200_dma), 2) if dist_200_dma is not None else '-'}",
-                "Shift DOT":     dot_shift,
-                "CAR Score":     f"{car_score}",
-                "CAR DOT":       dot_car,
-                "52W High Date": high_date_str,
-                "52W Low Date":  low_date_str,
-                "52W Low DOT":   dot_low_order,
-            })
+                dsl_cell = f"{days_since_low}"
+                if days_since_low > 0:
+                    dsl_cell += f" {GREEN_DOT}"
+                row["Days Since 52W Low"] = dsl_cell
+
+            # DMA Alignment breakout: ENTERING BULLISH zone AND car score >= 1
+            if car_score is not None and zone == "ENTERING BULLISH" and car_score >= 1:
+                row["DMA Alignment BO"] = GREEN_CHECK
+
+            # CAR breakout: CMP > 50/100/200 DMA, CMP within 0.1%-10% of
+            # 200 DMA, and car score >= 7
+            if (car_score is not None and dma_50 is not None and dma_100 is not None
+                    and dma_200 is not None and shift_pct is not None
+                    and cmp > dma_50 and cmp > dma_100 and cmp > dma_200
+                    and 0.1 <= shift_pct <= 10 and car_score >= 7):
+                row["CAR BO"] = FLUOR_GREEN_CHECK
 
         except Exception as e:
             print(f"  [ERROR] {ticker}: {e}")
-            # Still append a row with blanks so no stock is silently dropped
-            results.append({
-                "Date":          today_date,
-                "Stock":         ticker,
-                "CMP":           "-",
-                "30 DMA":        "-",
-                "30 DOT":        RED,
-                "50 DMA":        "-",
-                "50 DOT":        RED,
-                "100 DMA":       "-",
-                "100 DOT":       RED,
-                "200 DMA":       "-",
-                "200 DOT":       RED,
-                "Shift %":       "-",
-                "Shift DOT":     RED,
-                "CAR Score":     "0",
-                "CAR DOT":       RED,
-                "52W High Date": "-",
-                "52W Low Date":  "-",
-                "52W Low DOT":   "",
-            })
+
+        results.append(row)
 
     return results
 
 
+# ---------------------------------------------------------------------
+# Print
+# ---------------------------------------------------------------------
 def print_results(results):
     if not results:
         print("No results to display.")
         return
 
-    df = pd.DataFrame(results).fillna("").astype(str).sort_values(by='Stock')
+    today_str = datetime.now().strftime("%b-%d-%Y")
 
-    # Define display order and which columns have a trailing dot column
+    df = pd.DataFrame(results).fillna("").sort_values(by="Stock")
+
     display_cols = [
-        "Date", "Stock", "CMP",
-        "30 DMA", "50 DMA", "100 DMA", "200 DMA",
-        "Shift %", "CAR Score", "52W High Date", "52W Low Date",
+        "Stock", "Market Cap ($B)", "CMP", "DMA Alignment BO", "CAR BO",
+        "30 DMA", "50 DMA", "100 DMA", "200 DMA", "Shift %", "CAR", "Zone",
+        "52W High", "52W Low", "Days Since 52W Low",
     ]
-    dot_cols = {
-        "30 DMA": "30 DOT",
-        "50 DMA": "50 DOT",
-        "100 DMA": "100 DOT",
-        "200 DMA": "200 DOT",
-        "Shift %": "Shift DOT",
-        "CAR Score": "CAR DOT",
-        "52W Low Date": "52W Low DOT",
-    }
 
-    # Compute column widths: if column has a dot column, leave 2 chars for ' <dot>'
     col_widths = {}
     for col in display_cols:
-        base_max = df.get(col, "").map(len).max() if col in df.columns else len(col)
-        if col in dot_cols:
-            col_widths[col] = max(len(col), base_max + 2)
-        else:
-            col_widths[col] = max(len(col), base_max)
+        max_visible = max([visible_len(str(v)) for v in df[col]], default=0)
+        col_widths[col] = max(len(col), max_visible)
 
-    # Build separators and header
     sep = "+-" + "-+-".join("-" * col_widths[c] for c in display_cols) + "-+"
     header = "| " + " | ".join(c.ljust(col_widths[c]) for c in display_cols) + " |"
 
+    print(f"Date: {today_str}\n")
     print(sep)
     print(header)
     print(sep)
 
     for _, row in df.iterrows():
-        cells = []
-        for col in display_cols:
-            base = row.get(col, "")
-            if col in dot_cols:
-                dot = row.get(dot_cols[col], "")
-                # Place dot right before the pipe (right aligned). Base left-justified.
-                cell = base.ljust(col_widths[col] - 2) + (" " + dot)
-            else:
-                cell = base.ljust(col_widths[col])
-            cells.append(cell)
+        cells = [vjust(str(row[col]), col_widths[col]) for col in display_cols]
         print("| " + " | ".join(cells) + " |")
 
     print(sep)
