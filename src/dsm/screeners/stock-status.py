@@ -36,12 +36,8 @@ GREEN        = "\033[92m"
 YELLOW       = "\033[93m"
 ORANGE       = "\033[38;5;208m"
 PURPLE       = "\033[38;5;135m"
-FLUOR_GREEN  = "\033[38;5;46m"
-FLUOR_ORANGE = "\033[38;5;202m"
 
-GREEN_DOT         = f"{GREEN}\u25cf{RESET}"        # ●
-GREEN_CHECK       = f"{GREEN}\u2714{RESET}"        # ✔ (DMA Alignment BO)
-FLUOR_GREEN_CHECK = f"{FLUOR_GREEN}\u2714{RESET}"  # ✔ (CAR BO)
+GREEN_CHECK = f"{GREEN}\u2714{RESET}"  # ✔ (DMA BO / CAR BO)
 
 ANSI_RE = re.compile(r'\033\[[0-9;]*m')
 
@@ -133,7 +129,7 @@ def car_color(score):
     if score <= 1:
         return RED
     if score <= 4:
-        return FLUOR_ORANGE
+        return ORANGE
     if score <= 7:
         return YELLOW
     return GREEN
@@ -176,20 +172,15 @@ def scan_all(ticker_list):
             "DMA BO": "",
             "CAR BO": "",
             "30 DMA": "-",
-            "30 DMA_DOT": "",
             "50 DMA": "-",
-            "50 DMA_DOT": "",
             "100 DMA": "-",
-            "100 DMA_DOT": "",
             "200 DMA": "-",
-            "200 DMA_DOT": "",
             "Shift %": "-",
             "CAR": "-",
             "Zone": "-",
             "52W High": "-",
             "52W Low": "-",
             "Days Since 52W Low": "-",
-            "Days Since 52W Low_DOT": "",
         }
 
         try:
@@ -216,11 +207,10 @@ def scan_all(ticker_list):
             dma_200 = safe_dma(close_prices, 200)
 
             for label, dma_val in (("30 DMA", dma_30), ("50 DMA", dma_50),
-                                   ("100 DMA", dma_100), ("200 DMA", dma_200)):
+                                    ("100 DMA", dma_100), ("200 DMA", dma_200)):
                 if dma_val is not None:
-                    row[label] = f"{round(dma_val, 2)}"
-                    if cmp > dma_val:
-                        row[f"{label}_DOT"] = GREEN_DOT
+                    value_str = f"{round(dma_val, 2)}"
+                    row[label] = colorize(value_str, GREEN) if cmp > dma_val else value_str
 
             # Shift % from 200 DMA (always show the sign, so + and - line up)
             shift_pct = ((cmp - dma_200) / dma_200) * 100 if dma_200 else None
@@ -241,24 +231,21 @@ def scan_all(ticker_list):
 
                 high_date = high_series.idxmax()
                 low_date = low_series.idxmin()
-                week52_high = float(high_series.max())
-                week52_low = float(low_series.min())
 
-                row["52W High"] = f"{round(week52_high, 2)}"
-                row["52W Low"] = f"{round(week52_low, 2)}"
+                row["52W High"] = pd.Timestamp(high_date).strftime("%b-%d-%Y")
+                row["52W Low"] = pd.Timestamp(low_date).strftime("%b-%d-%Y")
 
                 car_score = compute_car(close_prices, high_date)
                 row["CAR"] = colorize(f"{car_score}", car_color(car_score))
 
                 # Days since 52W low: positive if the low occurred after the
-                # 52W high, negative otherwise. Green dot when positive.
+                # 52W high, negative otherwise. Shown in green when positive.
                 days_since_low = (datetime.now().date() - pd.Timestamp(low_date).date()).days
                 if pd.Timestamp(low_date) < pd.Timestamp(high_date):
                     days_since_low = -days_since_low
 
-                row["Days Since 52W Low"] = f"{days_since_low:+d}"
-                if days_since_low > 0:
-                    row["Days Since 52W Low_DOT"] = GREEN_DOT
+                dsl_str = f"{days_since_low:+d}"
+                row["Days Since 52W Low"] = colorize(dsl_str, GREEN) if days_since_low > 0 else dsl_str
 
             # DMA Alignment breakout: ENTERING BULLISH zone AND car score >= 1
             if car_score is not None and zone == "ENTERING BULLISH" and car_score >= 1:
@@ -270,7 +257,7 @@ def scan_all(ticker_list):
                     and dma_200 is not None and shift_pct is not None
                     and cmp > dma_50 and cmp > dma_100 and cmp > dma_200
                     and 0.1 <= shift_pct <= 10 and car_score >= 7):
-                row["CAR BO"] = FLUOR_GREEN_CHECK
+                row["CAR BO"] = GREEN_CHECK
 
         except Exception as e:
             print(f"  [ERROR] {ticker}: {e}")
@@ -298,17 +285,6 @@ def print_results(results):
         "52W High", "52W Low", "Days Since 52W Low",
     ]
 
-    # Columns that carry a green dot in a companion "<col>_DOT" field. The
-    # dot is always rendered flush against the right edge of the column
-    # (just before the pipe), regardless of how wide the value itself is.
-    dot_cols = {
-        "30 DMA": "30 DMA_DOT",
-        "50 DMA": "50 DMA_DOT",
-        "100 DMA": "100 DMA_DOT",
-        "200 DMA": "200 DMA_DOT",
-        "Days Since 52W Low": "Days Since 52W Low_DOT",
-    }
-
     # Headers that are split across two lines so the column doesn't have
     # to be as wide as the full header text.
     split_headers = {
@@ -319,8 +295,6 @@ def print_results(results):
     col_widths = {}
     for col in display_cols:
         value_width = max([visible_len(str(v)) for v in df[col]], default=0)
-        if col in dot_cols:
-            value_width += 3  # reserve "  <dot>" (two spaces) after the value
         if col in split_headers:
             header_width = max(len(p) for p in split_headers[col])
         else:
@@ -345,16 +319,7 @@ def print_results(results):
     print(sep)
 
     for _, row in df.iterrows():
-        cells = []
-        for col in display_cols:
-            value = str(row[col])
-            if col in dot_cols:
-                dot = str(row[dot_cols[col]]) or " "
-                value_slot = col_widths[col] - 3
-                cell = vjust(value, value_slot) + "  " + dot
-            else:
-                cell = vjust(value, col_widths[col])
-            cells.append(cell)
+        cells = [vjust(str(row[col]), col_widths[col]) for col in display_cols]
         print("| " + " | ".join(cells) + " |")
 
     print(sep)

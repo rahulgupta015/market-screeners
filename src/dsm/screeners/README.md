@@ -52,23 +52,23 @@ CAR requires a full year (252 trading days) of history to establish the
 
 **CAR color:**
 - score ≤ 1 → red
-- 2 ≤ score ≤ 4 → fluorescent orange
+- 2 ≤ score ≤ 4 → orange
 - 5 ≤ score ≤ 7 → yellow
 - score ≥ 8 → green
 
 ## Breakout flags
 
-- **DMA Alignment BO** (green check ✔): Zone is `ENTERING BULLISH` **and**
+- **DMA BO** (green check ✔): Zone is `ENTERING BULLISH` **and**
   CAR score ≥ 1. Blank otherwise.
-- **CAR BO** (fluorescent green check ✔): CMP > 50 DMA **and** CMP > 100 DMA
+- **CAR BO** (green check ✔): CMP > 50 DMA **and** CMP > 100 DMA
   **and** CMP > 200 DMA, CMP is within 0.1%–10% above the 200 DMA (Shift %
   between 0.1 and 10), **and** CAR score ≥ 7. Blank otherwise.
 
 ## DMA columns (30 / 50 / 100 / 200)
 
-Each cell shows the DMA value, followed by a green dot **only** when
-CMP > that DMA. No dot (and no red marker) is shown otherwise — these
-columns intentionally show a green dot only, per spec.
+Each cell shows the DMA value, colored green when CMP is above that DMA
+(plain/uncolored otherwise). No separate marker is used — the color on
+the value itself is the signal.
 
 ## Shift % From 200 DMA
 
@@ -85,13 +85,14 @@ columns intentionally show a green dot only, per spec.
 Computed from the trailing 252 trading days (left blank if less than a
 year of history is available):
 
-- **52W High / 52W Low**: the max High / min Low price over the trailing year.
+- **52W High / 52W Low**: the date (e.g. `Jul-15-2026`) on which the
+  trailing-year high / low occurred.
 - **Days Since 52W Low**: number of days since the 52-week-low date.
   - Positive if the low occurred **after** the 52-week high date (i.e. the
     low is more recent than the high — a fresh low).
   - Negative if the low occurred **before** the high date (i.e. the low is
     "stale" relative to a more recent high).
-  - A green dot is shown when this value is positive.
+  - Shown in green text when this value is positive.
 
 ## Code structure
 
