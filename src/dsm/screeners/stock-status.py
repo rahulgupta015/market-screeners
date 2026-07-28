@@ -173,18 +173,23 @@ def scan_all(ticker_list):
             "Stock": ticker,
             "Market Cap ($B)": "-",
             "CMP": "-",
-            "DMA Alignment BO": "",
+            "DMA BO": "",
             "CAR BO": "",
             "30 DMA": "-",
+            "30 DMA_DOT": "",
             "50 DMA": "-",
+            "50 DMA_DOT": "",
             "100 DMA": "-",
+            "100 DMA_DOT": "",
             "200 DMA": "-",
+            "200 DMA_DOT": "",
             "Shift %": "-",
             "CAR": "-",
             "Zone": "-",
             "52W High": "-",
             "52W Low": "-",
             "Days Since 52W Low": "-",
+            "Days Since 52W Low_DOT": "",
         }
 
         try:
@@ -211,17 +216,16 @@ def scan_all(ticker_list):
             dma_200 = safe_dma(close_prices, 200)
 
             for label, dma_val in (("30 DMA", dma_30), ("50 DMA", dma_50),
-                                    ("100 DMA", dma_100), ("200 DMA", dma_200)):
+                                   ("100 DMA", dma_100), ("200 DMA", dma_200)):
                 if dma_val is not None:
-                    cell = f"{round(dma_val, 2)}"
+                    row[label] = f"{round(dma_val, 2)}"
                     if cmp > dma_val:
-                        cell += f" {GREEN_DOT}"
-                    row[label] = cell
+                        row[f"{label}_DOT"] = GREEN_DOT
 
-            # Shift % from 200 DMA
+            # Shift % from 200 DMA (always show the sign, so + and - line up)
             shift_pct = ((cmp - dma_200) / dma_200) * 100 if dma_200 else None
             if shift_pct is not None:
-                row["Shift %"] = colorize(f"{round(shift_pct, 2)}", shift_color(shift_pct))
+                row["Shift %"] = colorize(f"{shift_pct:+.2f}", shift_color(shift_pct))
 
             # Zone (based on DMA stack + CMP only)
             zone = get_zone(cmp, dma_50, dma_100, dma_200)
@@ -252,14 +256,13 @@ def scan_all(ticker_list):
                 if pd.Timestamp(low_date) < pd.Timestamp(high_date):
                     days_since_low = -days_since_low
 
-                dsl_cell = f"{days_since_low}"
+                row["Days Since 52W Low"] = f"{days_since_low}"
                 if days_since_low > 0:
-                    dsl_cell += f" {GREEN_DOT}"
-                row["Days Since 52W Low"] = dsl_cell
+                    row["Days Since 52W Low_DOT"] = GREEN_DOT
 
             # DMA Alignment breakout: ENTERING BULLISH zone AND car score >= 1
             if car_score is not None and zone == "ENTERING BULLISH" and car_score >= 1:
-                row["DMA Alignment BO"] = GREEN_CHECK
+                row["DMA BO"] = GREEN_CHECK
 
             # CAR breakout: CMP > 50/100/200 DMA, CMP within 0.1%-10% of
             # 200 DMA, and car score >= 7
@@ -290,26 +293,68 @@ def print_results(results):
     df = pd.DataFrame(results).fillna("").sort_values(by="Stock")
 
     display_cols = [
-        "Stock", "Market Cap ($B)", "CMP", "DMA Alignment BO", "CAR BO",
+        "Stock", "Market Cap ($B)", "CMP", "DMA BO", "CAR BO",
         "30 DMA", "50 DMA", "100 DMA", "200 DMA", "Shift %", "CAR", "Zone",
         "52W High", "52W Low", "Days Since 52W Low",
     ]
 
+    # Columns that carry a green dot in a companion "<col>_DOT" field. The
+    # dot is always rendered flush against the right edge of the column
+    # (just before the pipe), regardless of how wide the value itself is.
+    dot_cols = {
+        "30 DMA": "30 DMA_DOT",
+        "50 DMA": "50 DMA_DOT",
+        "100 DMA": "100 DMA_DOT",
+        "200 DMA": "200 DMA_DOT",
+        "Days Since 52W Low": "Days Since 52W Low_DOT",
+    }
+
+    # Headers that are split across two lines so the column doesn't have
+    # to be as wide as the full header text.
+    split_headers = {
+        "Market Cap ($B)": ("Market Cap", "($B)"),
+        "Days Since 52W Low": ("Days Since", "52W Low"),
+    }
+
     col_widths = {}
     for col in display_cols:
-        max_visible = max([visible_len(str(v)) for v in df[col]], default=0)
-        col_widths[col] = max(len(col), max_visible)
+        value_width = max([visible_len(str(v)) for v in df[col]], default=0)
+        if col in dot_cols:
+            value_width += 2  # reserve " <dot>" after the value
+        if col in split_headers:
+            header_width = max(len(p) for p in split_headers[col])
+        else:
+            header_width = len(col)
+        col_widths[col] = max(header_width, value_width)
 
     sep = "+-" + "-+-".join("-" * col_widths[c] for c in display_cols) + "-+"
-    header = "| " + " | ".join(c.ljust(col_widths[c]) for c in display_cols) + " |"
+
+    header_line1 = "| " + " | ".join(
+        split_headers[c][0].ljust(col_widths[c]) if c in split_headers else "".ljust(col_widths[c])
+        for c in display_cols
+    ) + " |"
+    header_line2 = "| " + " | ".join(
+        split_headers[c][1].ljust(col_widths[c]) if c in split_headers else c.ljust(col_widths[c])
+        for c in display_cols
+    ) + " |"
 
     print(f"Date: {today_str}\n")
     print(sep)
-    print(header)
+    print(header_line1)
+    print(header_line2)
     print(sep)
 
     for _, row in df.iterrows():
-        cells = [vjust(str(row[col]), col_widths[col]) for col in display_cols]
+        cells = []
+        for col in display_cols:
+            value = str(row[col])
+            if col in dot_cols:
+                dot = str(row[dot_cols[col]]) or " "
+                value_slot = col_widths[col] - 2
+                cell = vjust(value, value_slot) + " " + dot
+            else:
+                cell = vjust(value, col_widths[col])
+            cells.append(cell)
         print("| " + " | ".join(cells) + " |")
 
     print(sep)
