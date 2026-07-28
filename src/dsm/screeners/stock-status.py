@@ -225,7 +225,7 @@ def scan_all(ticker_list):
             # Shift % from 200 DMA (always show the sign, so + and - line up)
             shift_pct = ((cmp - dma_200) / dma_200) * 100 if dma_200 else None
             if shift_pct is not None:
-                row["Shift %"] = colorize(f"{shift_pct:+.2f}", shift_color(shift_pct))
+                row["Shift %"] = colorize(f"{shift_pct:+06.2f}", shift_color(shift_pct))
 
             # Zone (based on DMA stack + CMP only)
             zone = get_zone(cmp, dma_50, dma_100, dma_200)
@@ -256,7 +256,7 @@ def scan_all(ticker_list):
                 if pd.Timestamp(low_date) < pd.Timestamp(high_date):
                     days_since_low = -days_since_low
 
-                row["Days Since 52W Low"] = f"{days_since_low}"
+                row["Days Since 52W Low"] = f"{days_since_low:+d}"
                 if days_since_low > 0:
                     row["Days Since 52W Low_DOT"] = GREEN_DOT
 
@@ -320,7 +320,7 @@ def print_results(results):
     for col in display_cols:
         value_width = max([visible_len(str(v)) for v in df[col]], default=0)
         if col in dot_cols:
-            value_width += 2  # reserve " <dot>" after the value
+            value_width += 3  # reserve "  <dot>" (two spaces) after the value
         if col in split_headers:
             header_width = max(len(p) for p in split_headers[col])
         else:
@@ -350,8 +350,8 @@ def print_results(results):
             value = str(row[col])
             if col in dot_cols:
                 dot = str(row[dot_cols[col]]) or " "
-                value_slot = col_widths[col] - 2
-                cell = vjust(value, value_slot) + " " + dot
+                value_slot = col_widths[col] - 3
+                cell = vjust(value, value_slot) + "  " + dot
             else:
                 cell = vjust(value, col_widths[col])
             cells.append(cell)
