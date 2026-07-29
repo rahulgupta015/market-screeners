@@ -16,9 +16,47 @@ from datetime import datetime
 logging.getLogger('yfinance').setLevel(logging.CRITICAL)
 warnings.filterwarnings('ignore')
 
+# TICKERS = [
+#     "NFXL", "ORCX", "BSX", "IBIT", "BULL", "MSFU", "METU", "ADP", "PG", "SOFI",
+#     "WMT", "SLV", "GLD", "BRK-B", "CVX", "TMO", "AMGN", "CTAS", "ITW", "MDLZ",
+#     "UPS", "WFC", "CL", "COF", "KHC", "PAYX", "PH", "PYPL", "SYY", "TQQQ",
+#     "QQQ", "SPY", "CEG", "VST",
+# ]
+
 TICKERS = [
-    "NFXL", "ORCX", "BSX", "IBIT", "BULL", "MSFU",
-    "METU", "ADP", "PG", "SOFI", "WMT", "SLV", "GLD",
+    "AAPL", "ABBV", "ACN", "ADBE", "ADP", "ADI", "AEP", "AFL", "AIG", "ALGN",
+    "ALL", "AMAT", "AMCR", "AMD", "AMGN", "AMT", "AMZN", "ANET", "AON", "APA",
+    "APD", "APTV", "ARE", "ATO", "AVB", "AVGO", "AWK", "AXP", "BALL", "BA",
+    "BAX", "BBY", "BDX", "BEN", "BIDU", "BIIB", "BILL", "BK", "BKNG", "BKR",
+    "BLK", "BMY", "BULL", "BXP", "C", "CAG", "CARR", "CAT", "CB", "CBRE",
+    "CDNS", "CDW", "CEG", "CHD", "CHTR", "CINF", "CL", "CLX", "CMCSA", "CME",
+    "CMS", "CNP", "COF", "COP", "COST", "CPRT", "CRL", "CRM", "CRWD", "CSCO",
+    "CSX", "CTAS", "CTSH", "CVS", "CVX", "D", "DAL", "DD", "DE", "DHI",
+    "DHR", "DIS", "DOCU", "DOV", "DRI", "DTE", "DUK", "EA", "EBAY", "ECL",
+    "ED", "EFX", "EIX", "EL", "ELV", "EMR", "EOG", "EQIX", "EQR", "ESS",
+    "ETN", "ETR", "EVRG", "EXC", "FAST", "FDX", "FE", "FIS", "FISV", "FITB",
+    "FOX", "FOXA", "FTNT", "GD", "GE", "GILD", "GIS", "GLD", "GLW", "GM",
+    "GOOG", "GOOGL", "GPC", "GRMN", "GS", "HBAN", "HD", "HCA", "HES", "HIG",
+    "HLT", "HON", "HPQ", "HSY", "HST", "HUM", "IBM", "ICE", "IEX", "IGIT",
+    "ILMN", "INFY", "INTC", "INTU", "IP", "IQV", "IR", "ISRG", "IT", "ITW",
+    "IVV", "IWM", "JD", "JBHT", "JCI", "JKHY", "JNJ", "JPM", "KDP", "KEY",
+    "KEYS", "KHC", "KIM", "KLAC", "KMI", "KO", "KR", "LCID", "LEN", "LH",
+    "LIN", "LLY", "LMT", "LNT", "LOW", "LRCX", "LULU", "LYB", "MA", "MAR",
+    "MAGS", "MCD", "MCHP", "MCK", "MELI", "MET", "META", "METU", "MKC",
+    "MLM", "MMC", "MNST", "MO", "MPWR", "MRK", "MRNA", "MRVL", "MS", "MSFT",
+    "MSFU", "MU", "NDAQ", "NEM", "NFLX", "NFXL", "NKE", "NOC", "NOW", "NTRS",
+    "NUE", "NVDA", "NXPI", "OKTA", "OMC", "ON", "ORCL", "ORCX", "ORLY",
+    "OTIS", "OXY", "PANW", "PAYX", "PCAR", "PENN", "PEP", "PFE", "PG", "PH",
+    "PKG", "PLD", "PM", "PNC", "PNR", "PODD", "POOL", "PPG", "PRU", "PSA",
+    "PYPL", "QCOM", "QQQ", "QRVO", "RCL", "REGN", "RJF", "RMD", "ROST",
+    "RSG", "SBAC", "SBUX", "SCHD", "SCHW", "SEDG", "SHW", "SLB", "SLV",
+    "SMH", "SNPS", "SO", "SOFI", "SOXX", "SPG", "SPY", "SPLK", "SNA", "SNP",
+    "SNY", "SYY", "T", "TEAM", "TDG", "TEL", "TFX", "TGT", "TJX", "TMO",
+    "TMUS", "TOPT", "TRV", "TSCO", "TSLA", "TT", "TQQQ", "TXN", "UAL",
+    "UDR", "UHS", "ULTA", "UNH", "UNP", "UPS", "USB", "V", "VICI", "VMC",
+    "VRSK", "VST", "VTI", "VTR", "VTRS", "VOO", "VRTX", "VZ", "WAB", "WAT",
+    "WBD", "WEC", "WELL", "WFC", "WM", "WMB", "WMT", "WST", "WY", "XLC",
+    "XLE", "XLF", "XLI", "XLK", "XLP", "XLV", "XLY", "XOM", "YUM", "ZM",
 ]
 
 # ---------------------------------------------------------------------
