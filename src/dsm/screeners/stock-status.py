@@ -21,20 +21,15 @@ TICKERS = [
     "METU", "ADP", "PG", "SOFI", "WMT", "SLV", "GLD",
 ]
 
-# TICKERS = [
-#     "MSFT", "META", "NVDA", "AVGO", "AAPL", "GOOGL", "AMZN",
-#     "JPM", "BSX", "INFY", "IBIT", "BULL",
-# ]
-
 # ---------------------------------------------------------------------
 # ANSI colors used for console output (supported by most modern
 # terminals, including Windows Terminal / VS Code integrated terminal).
 # ---------------------------------------------------------------------
 RESET        = "\033[0m"
-RED          = "\033[91m"
+RED          = "\033[38;5;196m"  # neon red
 GREEN        = "\033[92m"
 YELLOW       = "\033[93m"
-ORANGE       = "\033[38;5;208m"
+ORANGE       = "\033[38;5;214m"  # neon/amber orange - kept hue-separated from RED
 PURPLE       = "\033[38;5;135m"
 
 GREEN_CHECK = f"{GREEN}\u2714{RESET}"  # ✔ (DMA BO / CAR BO)
@@ -138,10 +133,10 @@ def car_color(score):
 def shift_color(shift_pct):
     if shift_pct > 10:
         return PURPLE
-    if shift_pct >= 0.1:
+    if shift_pct >= 0.01:
         return GREEN
     if shift_pct >= -10:
-        return YELLOW
+        return ORANGE
     return RED
 
 
@@ -258,7 +253,7 @@ def scan_all(ticker_list):
             dma_200 = safe_dma(close_prices, 200)
 
             for label, dma_val in (("30 DMA", dma_30), ("50 DMA", dma_50),
-                                    ("100 DMA", dma_100), ("200 DMA", dma_200)):
+                                   ("100 DMA", dma_100), ("200 DMA", dma_200)):
                 if dma_val is not None:
                     value_str = f"{round(dma_val, 2)}"
                     row[label] = colorize(value_str, GREEN) if cmp > dma_val else value_str
@@ -271,6 +266,10 @@ def scan_all(ticker_list):
             # Zone (based on DMA stack + CMP only)
             zone = get_zone(cmp, dma_50, dma_100, dma_200)
             row["Zone"] = colorize(zone, ZONE_COLOR.get(zone, ""))
+
+            # DMA Alignment breakout: Zone is ENTERING BULLISH
+            if zone == "ENTERING BULLISH":
+                row["DMA BO"] = GREEN_CHECK
 
             # 52-week high/low, CAR score, days since 52W low
             # (all require a full year of history; left blank otherwise)
@@ -297,10 +296,6 @@ def scan_all(ticker_list):
 
                 dsl_str = f"{days_since_low:+d}"
                 row["Days Since 52W Low"] = colorize(dsl_str, GREEN) if days_since_low > 0 else dsl_str
-
-            # DMA Alignment breakout: ENTERING BULLISH zone AND car score >= 1
-            if car_score is not None and zone == "ENTERING BULLISH" and car_score >= 1:
-                row["DMA BO"] = GREEN_CHECK
 
             # CAR breakout: CMP > 50/100/200 DMA, CMP within 0.1%-10% of
             # 200 DMA, and car score >= 7
