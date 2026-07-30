@@ -7,57 +7,37 @@
 # uv run src/dsm/screeners/stock-status.py
 
 import re
+import sys
 import yfinance as yf
 import pandas as pd
 import warnings
 import logging
 from datetime import datetime
+from pathlib import Path
+
+# Make sure `src/` is importable regardless of how this script is invoked
+# (uv run with the file path directly doesn't add `src/` to sys.path unless
+# `dsm` is installed as a package, so we add it ourselves here).
+SRC_DIR = Path(__file__).resolve().parents[2]
+if str(SRC_DIR) not in sys.path:
+    sys.path.insert(0, str(SRC_DIR))
+
+from dsm.stocks_us_50b_1m_options import STOCKS_BY_SYMBOL
+from dsm.etfs_us_100m_1m_options import ETFS_BY_SYMBOL
 
 logging.getLogger('yfinance').setLevel(logging.CRITICAL)
 warnings.filterwarnings('ignore')
 
-# TICKERS = [
-#     "NFXL", "ORCX", "BSX", "IBIT", "BULL", "MSFU", "METU", "ADP", "PG", "SOFI",
-#     "WMT", "SLV", "GLD", "BRK-B", "CVX", "TMO", "AMGN", "CTAS", "ITW", "MDLZ",
-#     "UPS", "WFC", "CL", "COF", "KHC", "PAYX", "PH", "PYPL", "SYY", "TQQQ",
-#     "QQQ", "SPY", "CEG", "VST",
-# ]
-
+# Small sample for testing. Swap in any symbols from STOCKS_BY_SYMBOL /
+# ETFS_BY_SYMBOL (src/dsm/stocks_us_50b_1m_options.py and
+# etfs_us_100m_1m_options.py) once ready to scan the full universe.
 TICKERS = [
-    "AAPL", "ABBV", "ACN", "ADBE", "ADP", "ADI", "AEP", "AFL", "AIG", "ALGN",
-    "ALL", "AMAT", "AMCR", "AMD", "AMGN", "AMT", "AMZN", "ANET", "AON", "APA",
-    "APD", "APTV", "ARE", "ATO", "AVB", "AVGO", "AWK", "AXP", "BALL", "BA",
-    "BAX", "BBY", "BDX", "BEN", "BIDU", "BIIB", "BILL", "BK", "BKNG", "BKR",
-    "BLK", "BMY", "BULL", "BXP", "C", "CAG", "CARR", "CAT", "CB", "CBRE",
-    "CDNS", "CDW", "CEG", "CHD", "CHTR", "CINF", "CL", "CLX", "CMCSA", "CME",
-    "CMS", "CNP", "COF", "COP", "COST", "CPRT", "CRL", "CRM", "CRWD", "CSCO",
-    "CSX", "CTAS", "CTSH", "CVS", "CVX", "D", "DAL", "DD", "DE", "DHI",
-    "DHR", "DIS", "DOCU", "DOV", "DRI", "DTE", "DUK", "EA", "EBAY", "ECL",
-    "ED", "EFX", "EIX", "EL", "ELV", "EMR", "EOG", "EQIX", "EQR", "ESS",
-    "ETN", "ETR", "EVRG", "EXC", "FAST", "FDX", "FE", "FIS", "FISV", "FITB",
-    "FOX", "FOXA", "FTNT", "GD", "GE", "GILD", "GIS", "GLD", "GLW", "GM",
-    "GOOG", "GOOGL", "GPC", "GRMN", "GS", "HBAN", "HD", "HCA", "HES", "HIG",
-    "HLT", "HON", "HPQ", "HSY", "HST", "HUM", "IBM", "ICE", "IEX", "IGIT",
-    "ILMN", "INFY", "INTC", "INTU", "IP", "IQV", "IR", "ISRG", "IT", "ITW",
-    "IVV", "IWM", "JD", "JBHT", "JCI", "JKHY", "JNJ", "JPM", "KDP", "KEY",
-    "KEYS", "KHC", "KIM", "KLAC", "KMI", "KO", "KR", "LCID", "LEN", "LH",
-    "LIN", "LLY", "LMT", "LNT", "LOW", "LRCX", "LULU", "LYB", "MA", "MAR",
-    "MAGS", "MCD", "MCHP", "MCK", "MELI", "MET", "META", "METU", "MKC",
-    "MLM", "MMC", "MNST", "MO", "MPWR", "MRK", "MRNA", "MRVL", "MS", "MSFT",
-    "MSFU", "MU", "NDAQ", "NEM", "NFLX", "NFXL", "NKE", "NOC", "NOW", "NTRS",
-    "NUE", "NVDA", "NXPI", "OKTA", "OMC", "ON", "ORCL", "ORCX", "ORLY",
-    "OTIS", "OXY", "PANW", "PAYX", "PCAR", "PENN", "PEP", "PFE", "PG", "PH",
-    "PKG", "PLD", "PM", "PNC", "PNR", "PODD", "POOL", "PPG", "PRU", "PSA",
-    "PYPL", "QCOM", "QQQ", "QRVO", "RCL", "REGN", "RJF", "RMD", "ROST",
-    "RSG", "SBAC", "SBUX", "SCHD", "SCHW", "SEDG", "SHW", "SLB", "SLV",
-    "SMH", "SNPS", "SO", "SOFI", "SOXX", "SPG", "SPY", "SPLK", "SNA", "SNP",
-    "SNY", "SYY", "T", "TEAM", "TDG", "TEL", "TFX", "TGT", "TJX", "TMO",
-    "TMUS", "TOPT", "TRV", "TSCO", "TSLA", "TT", "TQQQ", "TXN", "UAL",
-    "UDR", "UHS", "ULTA", "UNH", "UNP", "UPS", "USB", "V", "VICI", "VMC",
-    "VRSK", "VST", "VTI", "VTR", "VTRS", "VOO", "VRTX", "VZ", "WAB", "WAT",
-    "WBD", "WEC", "WELL", "WFC", "WM", "WMB", "WMT", "WST", "WY", "XLC",
-    "XLE", "XLF", "XLI", "XLK", "XLP", "XLV", "XLY", "XOM", "YUM", "ZM",
+    "AAPL", "MSFT", "NVDA", "GOOGL", "AMZN", "TSLA", "JPM", "VOO", "SPY", "QQQM",
 ]
+
+# Combined lookup so a ticker can be resolved regardless of whether it's a
+# stock or an ETF.
+MARKET_CAP_BY_SYMBOL = {**STOCKS_BY_SYMBOL, **ETFS_BY_SYMBOL}
 
 # ---------------------------------------------------------------------
 # ANSI colors used for console output (supported by most modern
@@ -180,65 +160,12 @@ def shift_color(shift_pct):
 
 def get_market_cap_billions(ticker):
     """
-    Fetch market cap (stocks) / AUM (ETFs) and return it in $ Billions,
-    or None if unavailable.
-
-    yfinance's fast_info exposes fields under different names depending on
-    version (e.g. attribute `market_cap` vs dict key `marketCap`), so both
-    styles are tried. ETFs frequently don't carry a market cap at all —
-    their size is reported as "total assets" (AUM), which lives in the
-    slower `.info` dict as `totalAssets`.
+    Look up market cap (stocks) / AUM (ETFs) in $ Billions from the local
+    config files (src/dsm/stocks_us_50b_1m_options.py and
+    etfs_us_100m_1m_options.py), or None if the ticker isn't in either.
     """
-    try:
-        t = yf.Ticker(ticker)
-
-        try:
-            fast = t.fast_info
-        except Exception:
-            fast = None
-
-        def fast_get(*keys):
-            """Try several key names, both dict-style and attribute-style."""
-            if fast is None:
-                return None
-            for k in keys:
-                try:
-                    v = fast[k]
-                    if v is not None:
-                        return v
-                except Exception:
-                    pass
-                v = getattr(fast, k, None)
-                if v is not None:
-                    return v
-            return None
-
-        # 1) Direct market cap (works for most regular stocks)
-        mcap = fast_get("market_cap", "marketCap")
-        if mcap:
-            return round(mcap / 1e9, 2)
-
-        # 2) price * shares outstanding (fallback, when available)
-        price = fast_get("last_price", "lastPrice")
-        shares = fast_get("shares_outstanding", "sharesOutstanding", "shares")
-        if price is not None and shares is not None:
-            computed = price * shares
-            if computed:
-                return round(computed / 1e9, 2)
-
-        # 3) Slower .info dict: marketCap for stocks, totalAssets (AUM) for ETFs
-        info = t.info
-        mcap = info.get("marketCap")
-        if mcap:
-            return round(mcap / 1e9, 2)
-
-        aum = info.get("totalAssets")
-        if aum:
-            return round(aum / 1e9, 2)
-
-    except Exception:
-        pass
-    return None
+    entry = MARKET_CAP_BY_SYMBOL.get(ticker)
+    return entry["market_cap_b"] if entry else None
 
 
 # ---------------------------------------------------------------------
@@ -411,6 +338,6 @@ def print_results(results):
 
 
 if __name__ == "__main__":
-    results = scan_all(TICKERS)
+    results = scan_all(MARKET_CAP_BY_SYMBOL)
     print()
     print_results(results)
