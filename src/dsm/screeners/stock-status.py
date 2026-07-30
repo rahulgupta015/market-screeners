@@ -354,6 +354,7 @@ if __name__ == "__main__":
 # I want to calculate all data , indicators first and apply the formatting/colors etc only in a separate funciton to
 # keep the code clean. Formatting must be separate from the core logic. So you can use new indicators for this purpose and use them
 # for coloring and display the print.
+# Remove bear/short and BOND type ETFS from etfs_us_100m_1m_options
 #
 # Divide the display in 2 parts,
 # part 1 : where DMA BO or CAR BO is green -> display them in order of 200 DMA shift% asc
