@@ -194,7 +194,7 @@ STOCKS = [
         "options": True,
     },
     {
-        "symbol": "BRK.B",
+        "symbol": "BRK-B",
         "name": "Berkshire Hathaway Inc.",
         "market_cap_b": 1100.0000,
         "country": "United States",
