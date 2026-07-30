@@ -343,13 +343,26 @@ if __name__ == "__main__":
     print_results(results)
 
 
-# TODOS
+# TODO for ai:
 # Clean the file of code that uses for src, dir , parent etc for loading the config file
 # The main.py has a list of tickers for test as TEST_TICKERS. Configure the stock-status.py
 # such that when I say --test, then it uses TEST_TICKERS instead of MARKET_CAP_BY_SYMBOL
-# rename the file stock-status.py appropriately and remove stock.py as thats old now and fix the project accordingly
-# Print the execution time in the end.
+#
+# Rename the file stock-status.py appropriately and remove stock.py as thats old now and fix the project accordingly
+#
+# Print the execution time in the end
 # I want to calculate all data , indicators first and apply the formatting/colors etc only in a separate funciton to
 # keep the code clean. Formatting must be separate from the core logic. So you can use new indicators for this purpose and use them
 # for coloring and display the print.
+#
+# Divide the display in 2 parts,
+# part 1 : where DMA BO or CAR BO is green -> display them in order of 200 DMA shift% asc
+# part 2 : all other than part 1 -> sorted by symbol
+#
+
+
+
+
+# TODO for me:
 # Fix ETFS list - TQQQ, SPY, NFXL, METU, MSFU, MUU, ORCX and any other
+
