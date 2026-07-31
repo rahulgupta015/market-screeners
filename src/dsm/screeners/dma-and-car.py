@@ -16,6 +16,7 @@ import pandas as pd
 import pandas_ta_classic as ta
 import warnings
 import logging
+from dataclasses import dataclass
 from datetime import datetime
 
 from dsm.screeners.stocks_us_50b_1m_options import STOCKS_BY_SYMBOL
@@ -70,6 +71,61 @@ def colorize(value_str, color):
 # ---------------------------------------------------------------------
 # Calculation helpers
 # ---------------------------------------------------------------------
+@dataclass
+class Ticker:
+    """Raw computed data for one ticker, before display formatting."""
+
+    symbol: str
+    market_cap_b: float | None = None
+    cmp: float | None = None
+    dma_bo: bool = False
+    car_bo: bool = False
+    ema_8: float | None = None
+    rsi: float | None = None
+    dma_30: float | None = None
+    dma_50: float | None = None
+    dma_100: float | None = None
+    dma_200: float | None = None
+    shift_pct: float | None = None
+    car: int | None = None
+    zone: str | None = None
+    high_date: pd.Timestamp | None = None
+    low_date: pd.Timestamp | None = None
+    high_price: float | None = None
+    low_price: float | None = None
+    days_since_low: int | None = None
+    error: tuple[str, str] | None = None
+
+    _FIELDS = {
+        "Stock": "symbol",
+        "Market Cap ($B)": "market_cap_b",
+        "CMP": "cmp",
+        "DMA BO": "dma_bo",
+        "CAR BO": "car_bo",
+        "EMA 8": "ema_8",
+        "RSI": "rsi",
+        "30 DMA": "dma_30",
+        "50 DMA": "dma_50",
+        "100 DMA": "dma_100",
+        "200 DMA": "dma_200",
+        "Shift %": "shift_pct",
+        "CAR": "car",
+        "Zone": "zone",
+        "52W High": "high_date",
+        "52W Low": "low_date",
+        "52W High Price": "high_price",
+        "52W Low Price": "low_price",
+        "Days Since 52W Low": "days_since_low",
+        "Error": "error",
+    }
+
+    def __getitem__(self, key):
+        return getattr(self, self._FIELDS[key])
+
+    def __setitem__(self, key, value):
+        setattr(self, self._FIELDS[key], value)
+
+
 def compute_car(close_prices, high_date):
     """
     Calculate and return the CAR score.
@@ -126,40 +182,16 @@ def get_market_cap_billions(ticker):
     return entry["market_cap_b"] if entry else None
 
 
-def compute_indicators(ticker):
+def compute_ticker(ticker):
     """
     Fetch price history for `ticker` and compute every raw indicator
     (CMP, DMAs, Shift %, Zone, CAR score, 52W high/low, breakout flags).
 
-    Pure data step: everything here is a plain number, date, string label,
-    or bool - no ANSI colors, checkmarks, or display formatting. See
-    format_row() for that.
-
-    Returns a dict; "Error" is None on success, or ("WARN"|"ERROR", msg)
-    if data was unavailable or something raised.
+    Pure data step: no ANSI colors, checkmarks, or display formatting.
+    Returns a Ticker object; ``error`` is None on success, or
+    ("WARN"|"ERROR", msg) if data was unavailable or something raised.
     """
-    raw = {
-        "Stock": ticker,
-        "Market Cap ($B)": None,
-        "CMP": None,
-        "DMA BO": False,
-        "CAR BO": False,
-        "EMA 8": None,
-        "RSI": None,
-        "30 DMA": None,
-        "50 DMA": None,
-        "100 DMA": None,
-        "200 DMA": None,
-        "Shift %": None,
-        "CAR": None,
-        "Zone": None,
-        "52W High": None,
-        "52W Low": None,
-        "52W High Price": None,
-        "52W Low Price": None,
-        "Days Since 52W Low": None,
-        "Error": None,
-    }
+    raw = Ticker(symbol=ticker)
 
     try:
         data = yf.download(ticker, period="2y", interval="1d", progress=False)
@@ -172,12 +204,12 @@ def compute_indicators(ticker):
         cmp = float(close_prices.iloc[-1])
         raw["CMP"] = cmp
 
-        ema_8 = ta.ema(close_prices, length=8)
         rsi = ta.rsi(close_prices, length=14)
-        if ema_8 is not None and pd.notna(ema_8.iloc[-1]):
-            raw["EMA 8"] = float(ema_8.iloc[-1])
         if rsi is not None and pd.notna(rsi.iloc[-1]):
             raw["RSI"] = float(rsi.iloc[-1])
+        ema_8 = ta.ema(close_prices, length=8)
+        if ema_8 is not None and pd.notna(ema_8.iloc[-1]):
+            raw["EMA 8"] = float(ema_8.iloc[-1])
 
         raw["Market Cap ($B)"] = get_market_cap_billions(ticker)
 
@@ -233,7 +265,7 @@ def compute_indicators(ticker):
         if (car_score is not None and dma_50 is not None and dma_100 is not None
                 and dma_200 is not None and shift_pct is not None
                 and cmp > dma_50 and cmp > dma_100 and cmp > dma_200
-                and 0.1 <= shift_pct <= 10 and car_score >= 7):
+                and 0.1 <= shift_pct <= 10 and car_score >= 5):
             raw["CAR BO"] = True
 
     except Exception as e:
@@ -246,19 +278,18 @@ def compute_indicators(ticker):
 # Scan
 # ---------------------------------------------------------------------
 def scan_all(ticker_list):
-    """Compute raw indicators for every ticker. Still just data - no
-    formatting or coloring happens here either (see format_row)."""
-    results = []
-    print(f"Processing {len(ticker_list)} symbols...\n")
+    """Return raw computed data for every ticker, without display logic."""
+    return [compute_ticker(ticker) for ticker in ticker_list]
 
-    for ticker in ticker_list:
-        raw = compute_indicators(ticker)
-        if raw["Error"]:
-            level, msg = raw["Error"]
-            print(f"  [{level}] {ticker}: {msg}")
-        results.append(raw)
 
-    return results
+def display_tickers(tickers):
+    """Apply display logic to raw ticker data and print the final tables."""
+    print(f"Processing {len(tickers)} symbols...\n")
+    for ticker in tickers:
+        if ticker["Error"]:
+            level, msg = ticker["Error"]
+            print(f"  [{level}] {ticker['Stock']}: {msg}")
+    print_results(tickers)
 
 
 # ---------------------------------------------------------------------
@@ -276,11 +307,13 @@ ZONE_COLOR = {
 def car_color(score):
     if score <= 1:
         return RED
-    if score <= 4:
+    if score <= 3:
         return ORANGE
-    if score <= 7:
+    if score <= 5:
         return YELLOW
-    return GREEN
+    if score <= 9:
+        return GREEN
+    return PURPLE
 
 
 def shift_color(shift_pct):
@@ -295,7 +328,7 @@ def shift_color(shift_pct):
 
 def format_row(raw):
     """
-    Turn one raw indicator row (from compute_indicators) into a
+    Turn one raw ticker record (from compute_ticker) into a
     display-ready row: strings, "-" for missing values, ANSI colors,
     checkmarks, formatted dates. Pure formatting - no calculation
     happens here.
@@ -394,8 +427,9 @@ def _table_lines(rows, display_cols, col_widths, split_headers):
     return lines
 
 
-def print_results(raw_results):
-    if not raw_results:
+def print_results(tickers):
+    """Render a list of raw Ticker records as the final status tables."""
+    if not tickers:
         print("No results to display.")
         return
 
@@ -431,8 +465,8 @@ def print_results(raw_results):
     # Part 1: any breakout (DMA BO or CAR BO), sorted by 200 DMA Shift %
     # ascending. Part 2: everything else, sorted by symbol. Sorting is
     # done on the raw values, before any formatting is applied.
-    breakout_raw = [r for r in raw_results if r["DMA BO"] or r["CAR BO"]]
-    other_raw = [r for r in raw_results if not (r["DMA BO"] or r["CAR BO"])]
+    breakout_raw = [r for r in tickers if r["DMA BO"] or r["CAR BO"]]
+    other_raw = [r for r in tickers if not (r["DMA BO"] or r["CAR BO"])]
 
     breakout_raw.sort(key=lambda r: r["Shift %"] if r["Shift %"] is not None else float("inf"))
     other_raw.sort(key=lambda r: r["Stock"])
@@ -465,7 +499,7 @@ def print_results(raw_results):
     for line in _table_lines(other_rows, display_cols, col_widths, split_headers):
         print(line)
 
-    print(f"\nTotal: {len(raw_results)} symbols ({len(breakout_rows)} breakouts, {len(other_rows)} others)\n")
+    print(f"\nTotal: {len(tickers)} symbols ({len(breakout_rows)} breakouts, {len(other_rows)} others)\n")
 
 
 if __name__ == "__main__":
@@ -484,8 +518,7 @@ if __name__ == "__main__":
         tickers = list(MARKET_CAP_BY_SYMBOL)
 
     results = scan_all(tickers)
-    print()
-    print_results(results)
+    display_tickers(results)
 
     elapsed = time.perf_counter() - start_time
     print(f"Execution time: {elapsed:.2f}s")
