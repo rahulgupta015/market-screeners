@@ -522,7 +522,3 @@ if __name__ == "__main__":
 
     elapsed = time.perf_counter() - start_time
     print(f"Execution time: {elapsed:.2f}s")
-
-
-# TODO for me:
-# Fix ETFS list - TQQQ, SPY, NFXL, METU, MSFU, MUU, ORCX and any other
