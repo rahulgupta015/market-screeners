@@ -19,6 +19,7 @@ wheels/
 .venv/
 venv/
 env/
+.uv-cache/
 
 # ---------------------------------------------------------
 # uv package manager
@@ -49,6 +50,10 @@ Thumbs.db
 # data files
 # ---------------------------------------------------------
 data/**/*.xlsx
+data/inputs/*
+data/outputs/*
+logs/*
+scripts/*
 
 # ---------------------------------------------------------
 # others

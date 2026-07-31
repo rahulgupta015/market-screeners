@@ -6,7 +6,7 @@ ETF market data configuration.
 - options: Whether options are available for this symbol
 
 Sorted alphabetically by symbol. Duplicate symbols removed.
-Same structure as stocks_config.py so both files can be iterated on identically.
+Same structure as the stock dataset so both files can be iterated on identically.
 Inverse/short/bear-type and bond/fixed-income ETFs excluded (bull/long
 equity, commodity, and non-directional equity funds only).
 """

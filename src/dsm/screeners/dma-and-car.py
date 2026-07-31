@@ -4,9 +4,9 @@
 # Logic reference: README.md (same folder)
 # -------------------------------------------------------------------------
 # Run command:
-# uv run src/dsm/screeners/stock-status.py
-# uv run src/dsm/screeners/stock-status.py --test   (first 10 symbols from MARKET_CAP_BY_SYMBOL)
-# uv run src/dsm/screeners/stock-status.py --my     (MY_TICKERS from dsm.main)
+# uv run src/dsm/screeners/dma-and-car.py
+# uv run src/dsm/screeners/dma-and-car.py --test   (first 10 symbols from MARKET_CAP_BY_SYMBOL)
+# uv run src/dsm/screeners/dma-and-car.py --my     (the scanner's MY_TICKERS)
 
 import re
 import sys
@@ -18,9 +18,8 @@ import warnings
 import logging
 from datetime import datetime
 
-from dsm.main import MY_TICKERS
-from dsm.stocks_us_50b_1m_options import STOCKS_BY_SYMBOL
-from dsm.etfs_us_100m_1m_options import ETFS_BY_SYMBOL
+from dsm.screeners.stocks_us_50b_1m_options import STOCKS_BY_SYMBOL
+from dsm.screeners.etfs_us_100m_1m_options import ETFS_BY_SYMBOL
 
 logging.getLogger('yfinance').setLevel(logging.CRITICAL)
 warnings.filterwarnings('ignore')
@@ -28,6 +27,11 @@ warnings.filterwarnings('ignore')
 # Combined lookup so a ticker can be resolved regardless of whether it's a
 # stock or an ETF.
 MARKET_CAP_BY_SYMBOL = {**STOCKS_BY_SYMBOL, **ETFS_BY_SYMBOL}
+
+# Small fixed sample of symbols the user cares about, for --my runs.
+MY_TICKERS = [
+    "NFXL", "ORCX", "IBIT", "BULL", "BSX",
+]
 
 # ---------------------------------------------------------------------
 # ANSI colors used for console output (supported by most modern
@@ -115,8 +119,8 @@ def get_zone(cmp, dma50, dma100, dma200):
 def get_market_cap_billions(ticker):
     """
     Look up market cap (stocks) / AUM (ETFs) in $ Billions from the local
-    config files (src/dsm/stocks_us_50b_1m_options.py and
-    etfs_us_100m_1m_options.py), or None if the ticker isn't in either.
+    ticker data files beside this scanner, or None if the ticker isn't in
+    either dataset.
     """
     entry = MARKET_CAP_BY_SYMBOL.get(ticker)
     return entry["market_cap_b"] if entry else None
