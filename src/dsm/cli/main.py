@@ -6,7 +6,7 @@ from dsm.model.ticker import Ticker
 from dsm.service.compute_service import scan_all
 from dsm.service.display_service import display_tickers
 
-MY_TICKERS = ["NFXL", "ORCX", "IBIT", "BULL", "BSX"]
+MY_TICKERS = ["NFXL", "ORCX", "IBIT", "BULL", "BSX", "METU", "MSFU", "AVL", "APPU"]
 
 
 def main() -> None:
@@ -27,6 +27,7 @@ def main() -> None:
     else:
         tickers = list(universe.values())
 
+    print(f"Processing {len(tickers)} symbols...\n", flush=True)
     start_time = time.perf_counter()
     calculations = scan_all(tickers)
     display_tickers(calculations)

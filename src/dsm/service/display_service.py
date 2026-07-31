@@ -116,7 +116,7 @@ SPLIT_HEADERS = {
     "DMA BO": ("DMA", "BO"),
     "CAR BO": ("CAR", "BO"),
     "RSI": ("RSI", ""),
-    "EMA 8": ("EM8", ""),
+    "EMA 8": ("8", "EMA"),
     "30 DMA": ("30", "DMA"),
     "50 DMA": ("50", "DMA"),
     "100 DMA": ("100", "DMA"),
@@ -183,8 +183,7 @@ def print_results(calculations: list[Calc]) -> None:
 
 
 def display_tickers(calculations: list[Calc]) -> None:
-    """Print progress/errors and render the calculation records."""
-    print(f"Processing {len(calculations)} symbols...\n")
+    """Print calculation errors and render the calculation records."""
     for calc in calculations:
         if calc.error:
             level, message = calc.error
