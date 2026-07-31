@@ -361,11 +361,10 @@ if __name__ == "__main__":
 # Rename the file stock-status.py appropriately and remove stock.py as thats old now and fix the project accordingly
 #
 # Print the execution time in the end
-# I want to calculate all data , indicators first and apply the formatting/colors etc only in a separate funciton to
-# keep the code clean. Formatting must be separate from the core logic. So you can use new indicators for this purpose and use them
-# for coloring and display the print.
-# Remove bear/short and BOND type ETFS from etfs_us_100m_1m_options
-#
+
+# I want to calculate all data, prepare indicators first and apply the formatting/colors etc only in a separate function to
+# keep the code clean. Formatting must be separate from the core logic.
+
 
 # TODO for me:
 # Fix ETFS list - TQQQ, SPY, NFXL, METU, MSFU, MUU, ORCX and any other
