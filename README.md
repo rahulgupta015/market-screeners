@@ -13,9 +13,7 @@ Advanced stock breakout scanner using technical analysis (DMAs, CAR, 52-week hig
 
 - yfinance ≥ 1.5.2 (Yahoo Finance data)
 - pandas ≥ 3.0.5 (data processing)
-- openpyxl ≥ 3.1.5 (Excel export)
-- numpy ≥ 2.5.1 (numerical operations)
-- matplotlib ≥ 3.11.1 (charting)
+- pandas-ta-classic == 0.6.52 (technical indicators)
 
 ### Run from Project Root
 
@@ -28,9 +26,9 @@ uv run python -m dsm
 uv run python -m dsm --test
 ```
 
-Or with the legacy command:
+Or run the scanner script directly:
 ```bash
-uv run python src/dsm/stock-screener.py
+uv run python src/dsm/screeners/stock-status.py
 ```
 
 ### Logic
@@ -39,13 +37,12 @@ uv run python src/dsm/stock-screener.py
 > 
 > Thank you to Mahesh Kaushik for this wonderful stock screener logic!
 
-1. Downloads 2 years of daily price data for each stock
-2. Calculates 30, 50, 100, and 200-day moving averages (DMA)
-3. Finds the 52-week high date and CAR (Cumulative Average Return) since that date
-4. Checks if CAR is rising over the last 10 days (Positive trend)
-5. Identifies breakouts: CMP > all DMAs, within 20% of 200 DMA, and CAR positive
-6. Returns sorted list by distance from 200 DMA
-7. Exports results to Excel with timestamp
+1. Downloads 2 years of daily price data for each ticker
+2. Calculates EMA 8, RSI, and 30/50/100/200-day moving averages (DMA)
+3. Finds 52-week high/low prices and dates
+4. Calculates the CAR score from the 52-week-high date
+5. Identifies DMA and CAR breakout conditions
+6. Prints all tickers in a formatted status table
 
 ### Testing
 
@@ -55,14 +52,12 @@ Test with a small set of stocks to verify changes quickly:
 uv run python -m dsm --test
 ```
 
-This scans 5 stocks: WFC, AIG, NDAQ, OMC, IQV (defined in `src/dsm/config.py`).
-
-Edit `FOR_TESTING` in `src/dsm/config.py` to customize the test set.
+Test and `--my` ticker selections are defined in `src/dsm/main.py` and
+`src/dsm/screeners/stock-status.py`.
 
 ### Output
 
-- **Console**: Formatted table of breakout stocks
-- **Excel**: `data/outputs/Breakout_YYYYMMDDHHmm.xlsx`
+- **Console**: Formatted table containing every ticker and its status indicators
 
 ### Project Structure
 
@@ -71,7 +66,7 @@ src/dsm/
   ├── main.py              # Entry point
   ├── config.py            # Stock lists & configuration
   ├── screeners/           # Screener modules
-  │   └── stock.py         # Stock breakout screener
+  │   └── stock-status.py   # Stock status and breakout screener
   └── utils/               # Utility functions
 data/
   ├── inputs/              # Input data files

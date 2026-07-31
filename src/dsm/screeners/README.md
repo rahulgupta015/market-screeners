@@ -8,7 +8,7 @@ cell is simply left blank rather than guessed at or omitted from the table.
 
 ## Output columns
 
-`Stock, Market Cap ($B), CMP, DMA Alignment BO, CAR BO, 30 DMA, 50 DMA, 100 DMA, 200 DMA, Shift % From 200 DMA, CAR, Zone, 52W High, 52W Low, Days Since 52W Low`
+`Stock, Market Cap ($B), CMP, DMA BO, CAR BO, 30 DMA, 50 DMA, 100 DMA, 200 DMA, Shift %, CAR, Zone, 52W High, 52W Low, Days Since 52W Low, EMA 8, RSI, 52W High Price, 52W Low Price`
 
 Rows are sorted by ticker. The current date is printed above the table.
 Market cap / AUM is pulled from yfinance and shown in $ Billions.
@@ -84,6 +84,11 @@ the value itself is the signal.
 - `-10` to `0.1` → yellow
 - `< -10` → red
 
+## EMA 8 and RSI
+
+EMA 8 and RSI(14) are calculated with `pandas_ta_classic` and shown at the
+end of the table. EMA 8 is colored green when CMP is above it.
+
 ## 52W High / 52W Low / Days Since 52W Low
 
 Computed from the trailing 252 trading days (left blank if less than a
@@ -100,7 +105,9 @@ year of history is available):
 
 ## Code structure
 
-- `safe_dma(close_prices, window)` — rolling DMA, or `None` if insufficient data.
+- `pandas_ta_classic.sma()` — calculates the 30/50/100/200 DMAs.
+- `pandas_ta_classic.ema()` / `pandas_ta_classic.rsi()` — calculates EMA 8 and RSI(14).
+- `pandas_ta_classic.maxindex()` / `minindex()` — locate 52-week high/low dates.
 - `compute_car(close_prices, high_date)` — returns the CAR score.
 - `get_zone(cmp, dma50, dma100, dma200)` — returns the Zone label.
 - `get_market_cap_billions(ticker)` — fetches market cap / AUM in $B via

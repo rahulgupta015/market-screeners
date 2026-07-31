@@ -13,6 +13,7 @@ import sys
 import time
 import yfinance as yf
 import pandas as pd
+import pandas_ta_classic as ta
 import warnings
 import logging
 from datetime import datetime
@@ -65,13 +66,6 @@ def colorize(value_str, color):
 # ---------------------------------------------------------------------
 # Calculation helpers
 # ---------------------------------------------------------------------
-def safe_dma(close_prices, window):
-    """Return the rolling DMA value or None if not enough data."""
-    if len(close_prices) >= window:
-        return float(close_prices.rolling(window).mean().iloc[-1])
-    return None
-
-
 def compute_car(close_prices, high_date):
     """
     Calculate and return the CAR score.
@@ -146,6 +140,8 @@ def compute_indicators(ticker):
         "CMP": None,
         "DMA BO": False,
         "CAR BO": False,
+        "EMA 8": None,
+        "RSI": None,
         "30 DMA": None,
         "50 DMA": None,
         "100 DMA": None,
@@ -155,6 +151,8 @@ def compute_indicators(ticker):
         "Zone": None,
         "52W High": None,
         "52W Low": None,
+        "52W High Price": None,
+        "52W Low Price": None,
         "Days Since 52W Low": None,
         "Error": None,
     }
@@ -170,12 +168,19 @@ def compute_indicators(ticker):
         cmp = float(close_prices.iloc[-1])
         raw["CMP"] = cmp
 
+        ema_8 = ta.ema(close_prices, length=8)
+        rsi = ta.rsi(close_prices, length=14)
+        if ema_8 is not None and pd.notna(ema_8.iloc[-1]):
+            raw["EMA 8"] = float(ema_8.iloc[-1])
+        if rsi is not None and pd.notna(rsi.iloc[-1]):
+            raw["RSI"] = float(rsi.iloc[-1])
+
         raw["Market Cap ($B)"] = get_market_cap_billions(ticker)
 
-        dma_30  = safe_dma(close_prices, 30)
-        dma_50  = safe_dma(close_prices, 50)
-        dma_100 = safe_dma(close_prices, 100)
-        dma_200 = safe_dma(close_prices, 200)
+        dma_30  = float(ta.sma(close_prices, length=30).iloc[-1]) if len(close_prices) >= 30 else None
+        dma_50  = float(ta.sma(close_prices, length=50).iloc[-1]) if len(close_prices) >= 50 else None
+        dma_100 = float(ta.sma(close_prices, length=100).iloc[-1]) if len(close_prices) >= 100 else None
+        dma_200 = float(ta.sma(close_prices, length=200).iloc[-1]) if len(close_prices) >= 200 else None
         raw["30 DMA"], raw["50 DMA"], raw["100 DMA"], raw["200 DMA"] = dma_30, dma_50, dma_100, dma_200
 
         # Shift % from 200 DMA
@@ -197,8 +202,14 @@ def compute_indicators(ticker):
             high_series = last_1y["High"].squeeze()
             low_series = last_1y["Low"].squeeze()
 
-            high_date = high_series.idxmax()
-            low_date = low_series.idxmin()
+            # Use pandas-ta for the 52-week extrema and their positions in
+            # the trailing 252-session window.
+            high_position = int(ta.maxindex(high_series, length=252).iloc[-1])
+            low_position = int(ta.minindex(low_series, length=252).iloc[-1])
+            high_date = high_series.index[high_position]
+            low_date = low_series.index[low_position]
+            raw["52W High Price"] = float(ta.rolling_max(high_series, length=252).iloc[-1])
+            raw["52W Low Price"] = float(ta.rolling_min(low_series, length=252).iloc[-1])
 
             raw["52W High"] = pd.Timestamp(high_date)
             raw["52W Low"] = pd.Timestamp(low_date)
@@ -291,6 +302,8 @@ def format_row(raw):
         "CMP": "-",
         "DMA BO": GREEN_CHECK if raw["DMA BO"] else "",
         "CAR BO": GREEN_CHECK if raw["CAR BO"] else "",
+        "EMA 8": "-",
+        "RSI": "-",
         "30 DMA": "-",
         "50 DMA": "-",
         "100 DMA": "-",
@@ -300,6 +313,8 @@ def format_row(raw):
         "Zone": "-",
         "52W High": "-",
         "52W Low": "-",
+        "52W High Price": "-",
+        "52W Low Price": "-",
         "Days Since 52W Low": "-",
     }
 
@@ -309,6 +324,13 @@ def format_row(raw):
     cmp = raw["CMP"]
     if cmp is not None:
         row["CMP"] = f"{round(cmp, 2)}"
+
+    if raw["EMA 8"] is not None:
+        ema_8_str = f"{raw['EMA 8']:.2f}"
+        row["EMA 8"] = colorize(ema_8_str, GREEN) if cmp is not None and cmp > raw["EMA 8"] else ema_8_str
+
+    if raw["RSI"] is not None:
+        row["RSI"] = f"{raw['RSI']:.2f}"
 
     for label in ("30 DMA", "50 DMA", "100 DMA", "200 DMA"):
         dma_val = raw[label]
@@ -330,6 +352,11 @@ def format_row(raw):
         row["52W High"] = raw["52W High"].strftime("%b-%d-%Y")
     if raw["52W Low"] is not None:
         row["52W Low"] = raw["52W Low"].strftime("%b-%d-%Y")
+
+    if raw["52W High Price"] is not None:
+        row["52W High Price"] = f"{raw['52W High Price']:.2f}"
+    if raw["52W Low Price"] is not None:
+        row["52W Low Price"] = f"{raw['52W Low Price']:.2f}"
 
     days_since_low = raw["Days Since 52W Low"]
     if days_since_low is not None:
@@ -373,14 +400,26 @@ def print_results(raw_results):
     display_cols = [
         "Stock", "Market Cap ($B)", "CMP", "DMA BO", "CAR BO",
         "30 DMA", "50 DMA", "100 DMA", "200 DMA", "Shift %", "CAR", "Zone",
-        "52W High", "52W Low", "Days Since 52W Low",
+        "52W High", "52W Low", "Days Since 52W Low", "EMA 8", "RSI",
+        "52W High Price", "52W Low Price",
     ]
 
     # Headers that are split across two lines so the column doesn't have
     # to be as wide as the full header text.
     split_headers = {
-        "Market Cap ($B)": ("Market Cap", "($B)"),
-        "Days Since 52W Low": ("Days Since", "52W Low"),
+        "Market Cap ($B)": ("Cap", "($B)"),
+        "DMA BO": ("DMA", "BO"),
+        "CAR BO": ("CAR", "BO"),
+        "30 DMA": ("30", "DMA"),
+        "50 DMA": ("50", "DMA"),
+        "100 DMA": ("100", "DMA"),
+        "200 DMA": ("200", "DMA"),
+        "Shift %": ("Shift", "%"),
+        "52W High": ("Hi", "Date"),
+        "52W Low": ("Low", "Date"),
+        "Days Since 52W Low": ("Days", "Since"),
+        "52W High Price": ("Hi", "Price"),
+        "52W Low Price": ("Low", "Price"),
     }
 
     # Part 1: any breakout (DMA BO or CAR BO), sorted by 200 DMA Shift %
@@ -444,17 +483,6 @@ if __name__ == "__main__":
 
     elapsed = time.perf_counter() - start_time
     print(f"Execution time: {elapsed:.2f}s")
-
-
-# TODO for ai:
-# Remove stock.py, rename the file stock-status.py appropriately and then the project files and structure accordingly
-#
-# I think lets have 3 py files - one that we will call, one for compute and prepare indicators and 1 for display if that makes sense
-#
-# In column DMA BO and CAR BO, bring BO under DMA and CAR, this will shorten the column
-# In column Market Cap ($B), bring Cap under Market to shorten the column
-#
-# Create a readme file - 1 single file
 
 
 # TODO for me:
