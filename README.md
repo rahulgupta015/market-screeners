@@ -25,12 +25,48 @@ advice; always do your own research and consult a qualified professional.
 
 - Python 3.12 or newer
 - [uv](https://docs.astral.sh/uv/getting-started/)
+- Internet access when the screener downloads market data from Yahoo Finance.
 
-Install dependencies and the editable project with:
+## Setup
 
-```bash
-uv sync
-```
+1. Clone or download this repository, then open a terminal in the repository
+   root (the directory containing `pyproject.toml`).
+
+2. Confirm that Python 3.12 or newer is available:
+
+   ```bash
+   python --version
+   ```
+
+   On Windows, use `py --version` if the `python` command is unavailable.
+
+3. Install [uv](https://docs.astral.sh/uv/getting-started/) if it is not
+   already installed.
+
+4. Create the project environment and install the project plus its pinned
+   dependencies:
+
+   ```bash
+   uv sync
+   ```
+
+   `uv sync` creates or updates the local `.venv` environment from
+   `pyproject.toml` and `uv.lock`. You do not need to activate the environment
+   when using `uv run`.
+
+5. Verify the installation by running the test suite:
+
+   ```bash
+   uv run python -m unittest discover -s tests -v
+   ```
+
+   The tests use synthetic data and mocked Yahoo Finance responses, so they do
+   not make network requests.
+
+If you prefer to activate the environment first, use `.venv\\Scripts\\Activate.ps1`
+in Windows PowerShell or `source .venv/bin/activate` on macOS/Linux. After
+activation, `python -m market_screeners` can be used instead of
+`uv run python -m market_screeners`.
 
 ## Run
 
