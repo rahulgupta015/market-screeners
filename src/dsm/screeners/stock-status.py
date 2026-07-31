@@ -179,6 +179,7 @@ def scan_all(ticker_list):
             "52W High": "-",
             "52W Low": "-",
             "Days Since 52W Low": "-",
+            "_shift_pct_raw": None,  # unformatted 200 DMA shift %, for sorting only
         }
 
         try:
@@ -214,6 +215,7 @@ def scan_all(ticker_list):
             shift_pct = ((cmp - dma_200) / dma_200) * 100 if dma_200 else None
             if shift_pct is not None:
                 row["Shift %"] = colorize(f"{shift_pct:+06.2f}", shift_color(shift_pct))
+                row["_shift_pct_raw"] = shift_pct
 
             # Zone (based on DMA stack + CMP only)
             zone = get_zone(cmp, dma_50, dma_100, dma_200)
@@ -268,14 +270,33 @@ def scan_all(ticker_list):
 # ---------------------------------------------------------------------
 # Print
 # ---------------------------------------------------------------------
+def _table_lines(rows, display_cols, col_widths, split_headers):
+    """Build the separator/header/data lines for one table section."""
+    sep = "+-" + "-+-".join("-" * col_widths[c] for c in display_cols) + "-+"
+
+    header_line1 = "| " + " | ".join(
+        split_headers[c][0].ljust(col_widths[c]) if c in split_headers else "".ljust(col_widths[c])
+        for c in display_cols
+    ) + " |"
+    header_line2 = "| " + " | ".join(
+        split_headers[c][1].ljust(col_widths[c]) if c in split_headers else c.ljust(col_widths[c])
+        for c in display_cols
+    ) + " |"
+
+    lines = [sep, header_line1, header_line2, sep]
+    for row in rows:
+        cells = [vjust(str(row[col]), col_widths[col]) for col in display_cols]
+        lines.append("| " + " | ".join(cells) + " |")
+    lines.append(sep)
+    return lines
+
+
 def print_results(results):
     if not results:
         print("No results to display.")
         return
 
     today_str = datetime.now().strftime("%b-%d-%Y")
-
-    df = pd.DataFrame(results).fillna("").sort_values(by="Stock")
 
     display_cols = [
         "Stock", "Market Cap ($B)", "CMP", "DMA BO", "CAR BO",
@@ -290,38 +311,39 @@ def print_results(results):
         "Days Since 52W Low": ("Days Since", "52W Low"),
     }
 
+    # Part 1: any breakout (DMA BO or CAR BO checked), sorted by 200 DMA
+    # Shift % ascending. Part 2: everything else, sorted by symbol.
+    breakout_rows = [r for r in results if r["DMA BO"] or r["CAR BO"]]
+    other_rows = [r for r in results if not (r["DMA BO"] or r["CAR BO"])]
+
+    breakout_rows.sort(key=lambda r: r["_shift_pct_raw"] if r["_shift_pct_raw"] is not None else float("inf"))
+    other_rows.sort(key=lambda r: r["Stock"])
+
+    # Shared column widths (computed across all results) so both tables
+    # line up the same way.
     col_widths = {}
     for col in display_cols:
-        value_width = max([visible_len(str(v)) for v in df[col]], default=0)
+        value_width = max([visible_len(str(r[col])) for r in results], default=0)
         if col in split_headers:
             header_width = max(len(p) for p in split_headers[col])
         else:
             header_width = len(col)
         col_widths[col] = max(header_width, value_width)
 
-    sep = "+-" + "-+-".join("-" * col_widths[c] for c in display_cols) + "-+"
-
-    header_line1 = "| " + " | ".join(
-        split_headers[c][0].ljust(col_widths[c]) if c in split_headers else "".ljust(col_widths[c])
-        for c in display_cols
-    ) + " |"
-    header_line2 = "| " + " | ".join(
-        split_headers[c][1].ljust(col_widths[c]) if c in split_headers else c.ljust(col_widths[c])
-        for c in display_cols
-    ) + " |"
-
     print(f"Date: {today_str}\n")
-    print(sep)
-    print(header_line1)
-    print(header_line2)
-    print(sep)
 
-    for _, row in df.iterrows():
-        cells = [vjust(str(row[col]), col_widths[col]) for col in display_cols]
-        print("| " + " | ".join(cells) + " |")
+    print(f"--- Breakouts (DMA BO / CAR BO) - sorted by 200 DMA Shift % asc ---\n")
+    if breakout_rows:
+        for line in _table_lines(breakout_rows, display_cols, col_widths, split_headers):
+            print(line)
+    else:
+        print("(none)")
 
-    print(sep)
-    print(f"\nTotal: {len(results)} stocks\n")
+    print(f"\n--- All Other Symbols - sorted by Symbol ---\n")
+    for line in _table_lines(other_rows, display_cols, col_widths, split_headers):
+        print(line)
+
+    print(f"\nTotal: {len(results)} symbols ({len(breakout_rows)} breakouts, {len(other_rows)} others)\n")
 
 
 if __name__ == "__main__":
@@ -344,13 +366,6 @@ if __name__ == "__main__":
 # for coloring and display the print.
 # Remove bear/short and BOND type ETFS from etfs_us_100m_1m_options
 #
-# Divide the display in 2 parts,
-# part 1 : where DMA BO or CAR BO is green -> display them in order of 200 DMA shift% asc
-# part 2 : all other than part 1 -> sorted by symbol
-#
-
-
-
 
 # TODO for me:
 # Fix ETFS list - TQQQ, SPY, NFXL, METU, MSFU, MUU, ORCX and any other
