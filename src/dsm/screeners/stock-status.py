@@ -5,7 +5,8 @@
 # -------------------------------------------------------------------------
 # Run command:
 # uv run src/dsm/screeners/stock-status.py
-# uv run src/dsm/screeners/stock-status.py --test
+# uv run src/dsm/screeners/stock-status.py --test   (first 10 symbols from MARKET_CAP_BY_SYMBOL)
+# uv run src/dsm/screeners/stock-status.py --my     (MY_TICKERS from dsm.main)
 
 import re
 import sys
@@ -16,7 +17,7 @@ import warnings
 import logging
 from datetime import datetime
 
-from dsm.main import TEST_TICKERS
+from dsm.main import MY_TICKERS
 from dsm.stocks_us_50b_1m_options import STOCKS_BY_SYMBOL
 from dsm.etfs_us_100m_1m_options import ETFS_BY_SYMBOL
 
@@ -426,9 +427,16 @@ if __name__ == "__main__":
     start_time = time.perf_counter()
 
     use_test = "--test" in sys.argv
-    tickers = TEST_TICKERS if use_test else list(MARKET_CAP_BY_SYMBOL)
+    use_my = "--my" in sys.argv
+
     if use_test:
+        tickers = sorted(MARKET_CAP_BY_SYMBOL)[:10]
         print(f"(Running in TEST mode with {len(tickers)} tickers)\n")
+    elif use_my:
+        tickers = MY_TICKERS
+        print(f"(Running in MY mode with {len(tickers)} tickers)\n")
+    else:
+        tickers = list(MARKET_CAP_BY_SYMBOL)
 
     results = scan_all(tickers)
     print()
@@ -442,10 +450,6 @@ if __name__ == "__main__":
 # Remove stock.py, rename the file stock-status.py appropriately and then the project files and structure accordingly
 #
 # I think lets have 3 py files - one that we will call, one for compute and prepare indicators and 1 for display if that makes sense
-#
-# Modify the --test option to actually use the MARKET_CAP_BY_SYMBOL but use only 10 entries from it.
-#
-# Rename the TEST_TICKERS to MY_TICKERS and introduce a new option called --my where it will scan and process MY_TICKERS
 #
 # In column DMA BO and CAR BO, bring BO under DMA and CAR, this will shorten the column
 # In column Market Cap ($B), bring Cap under Market to shorten the column
