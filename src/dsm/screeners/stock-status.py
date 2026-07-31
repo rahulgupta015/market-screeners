@@ -349,9 +349,9 @@ def format_row(raw):
         row["CAR"] = colorize(f"{raw['CAR']}", car_color(raw["CAR"]))
 
     if raw["52W High"] is not None:
-        row["52W High"] = raw["52W High"].strftime("%b-%d-%Y")
+        row["52W High"] = raw["52W High"].strftime("%m-%d-%y")
     if raw["52W Low"] is not None:
-        row["52W Low"] = raw["52W Low"].strftime("%b-%d-%Y")
+        row["52W Low"] = raw["52W Low"].strftime("%m-%d-%y")
 
     if raw["52W High Price"] is not None:
         row["52W High Price"] = f"{raw['52W High Price']:.2f}"
@@ -399,8 +399,8 @@ def print_results(raw_results):
 
     display_cols = [
         "Stock", "Market Cap ($B)", "CMP", "DMA BO", "CAR BO",
-        "30 DMA", "50 DMA", "100 DMA", "200 DMA", "Shift %", "CAR", "Zone",
-        "52W High", "52W Low", "Days Since 52W Low", "EMA 8", "RSI",
+        "RSI", "EMA 8", "30 DMA", "50 DMA", "100 DMA", "200 DMA", "Shift %", "CAR", "Zone",
+        "52W High", "52W Low", "Days Since 52W Low",
         "52W High Price", "52W Low Price",
     ]
 
@@ -410,16 +410,18 @@ def print_results(raw_results):
         "Market Cap ($B)": ("Cap", "($B)"),
         "DMA BO": ("DMA", "BO"),
         "CAR BO": ("CAR", "BO"),
+        "EMA 8": ("EM8", ""),
+        "RSI": ("RSI", ""),
         "30 DMA": ("30", "DMA"),
         "50 DMA": ("50", "DMA"),
         "100 DMA": ("100", "DMA"),
         "200 DMA": ("200", "DMA"),
-        "Shift %": ("Shift", "%"),
-        "52W High": ("Hi", "Date"),
-        "52W Low": ("Low", "Date"),
-        "Days Since 52W Low": ("Days", "Since"),
-        "52W High Price": ("Hi", "Price"),
-        "52W Low Price": ("Low", "Price"),
+        "Shift %": ("Shift%", "200 DMA"),
+        "52W High": ("52WH", "Date"),
+        "52W Low": ("52WL", "Date"),
+        "Days Since 52W Low": ("52WL -", "52WH"),
+        "52W High Price": ("52WH", "Price"),
+        "52W Low Price": ("52WL", "Price"),
     }
 
     # Part 1: any breakout (DMA BO or CAR BO), sorted by 200 DMA Shift %
