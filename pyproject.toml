@@ -15,7 +15,7 @@ dependencies = [
 ]
 
 [project.scripts]
-dsm = "dsm.main:main"
+dsm = "dsm.cli.main:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/dsm"]

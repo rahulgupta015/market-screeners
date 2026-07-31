@@ -1,4 +1,4 @@
-from dsm.main import main
+from dsm.cli.main import main
 
 if __name__ == "__main__":
     main()
