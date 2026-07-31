@@ -1,5 +1,7 @@
 import unittest
+from contextlib import redirect_stdout
 from datetime import date
+from io import StringIO
 from unittest.mock import patch
 
 import pandas as pd
@@ -8,8 +10,8 @@ from dsm.model.calc import Calc
 from dsm.model.display import Display
 from dsm.model.market_universe import load_market_universe
 from dsm.model.ticker import Ticker
-from dsm.service.compute_service import compute_car, get_zone, scan_all
-from dsm.service.display_service import format_row
+from dsm.service.compute_service import compute_car, get_zone, is_car_breakout, is_dma_breakout, scan_all
+from dsm.service.display_service import format_row, print_results
 
 
 class DmaAndCarTests(unittest.TestCase):
@@ -43,6 +45,35 @@ class DmaAndCarTests(unittest.TestCase):
         self.assertEqual(actual, expected)
         self.assertEqual(compute.call_count, 2)
 
+    def test_breakout_rules_do_not_depend_on_zone(self):
+        calc = Calc(
+            ticker=Ticker("TEST"),
+            cmp=103,
+            dma_50=102,
+            dma_100=101,
+            dma_200=100,
+            shift_pct=3,
+            zone="U",
+            car=5,
+        )
+
+        self.assertTrue(is_dma_breakout(calc))
+        self.assertTrue(is_car_breakout(calc))
+
+    def test_car_breakout_requires_car_score_of_five(self):
+        calc = Calc(
+            ticker=Ticker("TEST"),
+            cmp=103,
+            dma_50=102,
+            dma_100=101,
+            dma_200=100,
+            shift_pct=3,
+            car=4,
+        )
+
+        self.assertTrue(is_dma_breakout(calc))
+        self.assertFalse(is_car_breakout(calc))
+
     def test_display_formatting_returns_display_model(self):
         calc = Calc(
             ticker=Ticker("TEST"),
@@ -59,6 +90,21 @@ class DmaAndCarTests(unittest.TestCase):
         self.assertEqual(row["CMP"], "42.5")
         self.assertEqual(row["52W High"], "07-15-26")
         self.assertEqual(row["52W Low"], "04-02-26")
+
+    def test_breakout_tables_allow_overlap(self):
+        dma_only = Calc(ticker=Ticker("DMA"), dma_bo=True, shift_pct=2)
+        car_only = Calc(ticker=Ticker("CAR"), car_bo=True, car=6, shift_pct=3)
+        both = Calc(ticker=Ticker("BOTH"), dma_bo=True, car_bo=True, car=7, shift_pct=1)
+        other = Calc(ticker=Ticker("OTHER"))
+        output = StringIO()
+
+        with redirect_stdout(output):
+            print_results([dma_only, car_only, both, other])
+
+        rendered = output.getvalue()
+        self.assertLess(rendered.index("DMA Breakout"), rendered.index("CAR Breakout"))
+        self.assertLess(rendered.index("CAR Breakout"), rendered.index("Others"))
+        self.assertIn("Total: 4 symbols (2 DMA breakouts, 2 CAR breakouts, 1 others)", rendered)
 
 
 if __name__ == "__main__":

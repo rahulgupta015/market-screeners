@@ -51,6 +51,36 @@ def _last_indicator(indicator):
     return None
 
 
+def is_dma_breakout(calc: Calc) -> bool:
+    """Return whether a calculation meets the independent DMA BO rule."""
+    return (
+        calc.cmp is not None
+        and calc.dma_50 is not None
+        and calc.dma_100 is not None
+        and calc.dma_200 is not None
+        and calc.shift_pct is not None
+        and calc.cmp > calc.dma_50 > calc.dma_100 > calc.dma_200
+        and 0 < calc.shift_pct < 10
+    )
+
+
+def is_car_breakout(calc: Calc) -> bool:
+    """Return whether a calculation meets the independent CAR BO rule."""
+    return (
+        calc.cmp is not None
+        and calc.dma_50 is not None
+        and calc.dma_100 is not None
+        and calc.dma_200 is not None
+        and calc.shift_pct is not None
+        and calc.car is not None
+        and calc.cmp > calc.dma_50
+        and calc.cmp > calc.dma_100
+        and calc.cmp > calc.dma_200
+        and 0 < calc.shift_pct < 10
+        and calc.car >= 5
+    )
+
+
 def compute_ticker(ticker: Ticker) -> Calc:
     """Fetch market data and return one raw calculation record."""
     calc = Calc(ticker=ticker)
@@ -72,7 +102,6 @@ def compute_ticker(ticker: Ticker) -> Calc:
         calc.dma_200 = _last_indicator(ta.sma(close_prices, length=200)) if len(close_prices) >= 200 else None
         calc.shift_pct = ((calc.cmp - calc.dma_200) / calc.dma_200) * 100 if calc.dma_200 else None
         calc.zone = get_zone(calc.cmp, calc.dma_50, calc.dma_100, calc.dma_200)
-        calc.dma_bo = calc.zone == "B+"
 
         car_score = None
         if len(data) >= 252:
@@ -97,18 +126,8 @@ def compute_ticker(ticker: Ticker) -> Calc:
                 days_since_low = -days_since_low
             calc.days_since_low = days_since_low
 
-        calc.car_bo = (
-            car_score is not None
-            and calc.dma_50 is not None
-            and calc.dma_100 is not None
-            and calc.dma_200 is not None
-            and calc.shift_pct is not None
-            and calc.cmp > calc.dma_50
-            and calc.cmp > calc.dma_100
-            and calc.cmp > calc.dma_200
-            and 0.1 <= calc.shift_pct <= 10
-            and car_score >= 7
-        )
+        calc.dma_bo = is_dma_breakout(calc)
+        calc.car_bo = is_car_breakout(calc)
     except Exception as exc:
         calc.error = ("ERROR", str(exc))
 

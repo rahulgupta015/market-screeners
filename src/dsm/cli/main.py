@@ -6,7 +6,7 @@ from dsm.model.ticker import Ticker
 from dsm.service.compute_service import scan_all
 from dsm.service.display_service import display_tickers
 
-MY_TICKERS = ["NFXL", "ORCX", "IBIT", "BULL", "BSX", "METU", "MSFU", "AVL", "APPU"]
+MY_TICKERS = ["NFXL", "ORCX", "IBIT", "BULL", "BSX", "METU", "MSFU", "AVL", "AAPU"]
 
 
 def main() -> None:

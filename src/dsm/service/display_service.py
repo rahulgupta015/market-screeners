@@ -154,14 +154,22 @@ def print_results(calculations: list[Calc]) -> None:
         print("No results to display.")
         return
 
-    breakout = [calc for calc in calculations if calc.dma_bo or calc.car_bo]
-    others = [calc for calc in calculations if not (calc.dma_bo or calc.car_bo)]
-    breakout.sort(key=lambda calc: calc.shift_pct if calc.shift_pct is not None else float("inf"))
+    dma_breakouts = [calc for calc in calculations if calc.dma_bo]
+    car_breakouts = [calc for calc in calculations if calc.car_bo]
+    others = [calc for calc in calculations if not calc.dma_bo and not calc.car_bo]
+    dma_breakouts.sort(key=lambda calc: calc.shift_pct if calc.shift_pct is not None else float("inf"))
+    car_breakouts.sort(
+        key=lambda calc: (
+            -(calc.car if calc.car is not None else float("-inf")),
+            calc.shift_pct if calc.shift_pct is not None else float("inf"),
+        )
+    )
     others.sort(key=lambda calc: calc.ticker.symbol)
 
-    breakout_rows = [format_row(calc) for calc in breakout]
+    dma_breakout_rows = [format_row(calc) for calc in dma_breakouts]
+    car_breakout_rows = [format_row(calc) for calc in car_breakouts]
     other_rows = [format_row(calc) for calc in others]
-    all_rows = breakout_rows + other_rows
+    all_rows = dma_breakout_rows + car_breakout_rows + other_rows
     widths = {}
     for column in DISPLAY_COLS:
         value_width = max((visible_len(str(row[column])) for row in all_rows), default=0)
@@ -169,17 +177,30 @@ def print_results(calculations: list[Calc]) -> None:
         widths[column] = max(header_width, value_width)
 
     print(f"Date: {datetime.now().strftime('%b-%d-%Y')}\n")
-    print("--- Breakouts (DMA BO / CAR BO) - sorted by 200 DMA Shift % asc ---\n")
-    if breakout_rows:
-        for line in _table_lines(breakout_rows, widths):
+    print("--- DMA Breakout (sorted by Shift% asc) ---")
+    print("DMA BO: CMP > 50 DMA > 100 DMA > 200 DMA; 0% < Shift% < 10%.\n")
+    if dma_breakout_rows:
+        for line in _table_lines(dma_breakout_rows, widths):
             print(line)
     else:
         print("(none)")
 
-    print("\n--- All Other Symbols - sorted by Symbol ---\n")
+    print("\n--- CAR Breakout (sorted by CAR desc, Shift% asc) ---")
+    print("CAR BO: CMP > 50/100/200 DMA; 0% < Shift% < 10%; CAR >= 5.\n")
+    if car_breakout_rows:
+        for line in _table_lines(car_breakout_rows, widths):
+            print(line)
+    else:
+        print("(none)")
+
+    print("\n--- Others (sorted by Symbol) ---\n")
     for line in _table_lines(other_rows, widths):
         print(line)
-    print(f"\nTotal: {len(calculations)} symbols ({len(breakout_rows)} breakouts, {len(other_rows)} others)\n")
+    print(
+        f"\nTotal: {len(calculations)} symbols "
+        f"({len(dma_breakout_rows)} DMA breakouts, "
+        f"{len(car_breakout_rows)} CAR breakouts, {len(other_rows)} others)\n"
+    )
 
 
 def display_tickers(calculations: list[Calc]) -> None:
