@@ -11,16 +11,41 @@ from dsm.model.display import Display
 from dsm.model.market_universe import load_market_universe
 from dsm.model.ticker import Ticker
 from dsm.service.compute_service import compute_car, get_zone, is_car_breakout, is_dma_breakout, scan_all
-from dsm.service.display_service import format_row, print_results
+from dsm.service.display_service import (
+    GREEN,
+    PURPLE,
+    RED,
+    YELLOW,
+    car_color,
+    format_row,
+    print_results,
+    rsi_color,
+    shift_color,
+)
 
 
 class DmaAndCarTests(unittest.TestCase):
     def test_zone_codes_preserve_zone_rules(self):
-        self.assertEqual(get_zone(120, 100, 90, 80), "B++")
-        self.assertEqual(get_zone(46, 45, 44, 42), "B+")
-        self.assertEqual(get_zone(92, 95, 98, 100), "B-")
-        self.assertEqual(get_zone(85, 90, 100, 110), "B--")
-        self.assertEqual(get_zone(100, 90, 95, 80), "U")
+        self.assertEqual(
+            get_zone(120, 100, 90, 80, {50: 99, 100: 89, 200: 79}),
+            "B++",
+        )
+        self.assertEqual(
+            get_zone(104, 103, 102, 95, {50: 101, 100: 102.5, 200: 94}),
+            "B+",
+        )
+        self.assertEqual(
+            get_zone(80, 90, 95, 100, {50: 92, 100: 91, 200: 99}),
+            "B-",
+        )
+        self.assertEqual(
+            get_zone(70, 80, 85, 90, {50: 81, 100: 86, 200: 91}),
+            "B--",
+        )
+        self.assertEqual(
+            get_zone(100, 90, 95, 80, {50: 89, 100: 94, 200: 79}),
+            "U",
+        )
 
     def test_compute_car_scores_longest_increasing_tail(self):
         dates = pd.date_range("2026-01-01", periods=5, freq="D")
@@ -105,6 +130,20 @@ class DmaAndCarTests(unittest.TestCase):
         self.assertLess(rendered.index("DMA Breakout"), rendered.index("CAR Breakout"))
         self.assertLess(rendered.index("CAR Breakout"), rendered.index("Others"))
         self.assertIn("Total: 4 symbols (2 DMA breakouts, 2 CAR breakouts, 1 others)", rendered)
+
+    def test_color_thresholds(self):
+        self.assertEqual(rsi_color(25), PURPLE)
+        self.assertEqual(rsi_color(40), GREEN)
+        self.assertEqual(rsi_color(65), YELLOW)
+        self.assertEqual(rsi_color(66), RED)
+        self.assertEqual(shift_color(10), GREEN)
+        self.assertEqual(shift_color(10.01), PURPLE)
+        self.assertEqual(shift_color(-10), YELLOW)
+        self.assertEqual(shift_color(-10.01), RED)
+        self.assertEqual(car_color(1), RED)
+        self.assertEqual(car_color(2), YELLOW)
+        self.assertEqual(car_color(5), GREEN)
+        self.assertEqual(car_color(10), PURPLE)
 
 
 if __name__ == "__main__":

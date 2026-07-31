@@ -7,17 +7,15 @@ from dsm.model.display import Display
 RESET = "\033[0m"
 RED = "\033[38;5;196m"
 GREEN = "\033[92m"
-YELLOW = "\033[93m"
-ORANGE = "\033[38;5;214m"
-PURPLE = "\033[38;5;135m"
+YELLOW = "\033[38;5;229m"
+PURPLE = "\033[38;5;183m"
 GREEN_CHECK = f"{GREEN}\u2714{RESET}"
 ANSI_RE = re.compile(r"\033\[[0-9;]*m")
 
 ZONE_COLOR = {
     "B++": PURPLE,
     "B+": GREEN,
-    "U": YELLOW,
-    "B-": ORANGE,
+    "B-": YELLOW,
     "B--": RED,
 }
 
@@ -36,14 +34,24 @@ def colorize(value, color):
     return f"{color}{value}{RESET}"
 
 
-def car_color(score):
-    if score <= 1:
-        return RED
-    if score <= 4:
-        return ORANGE
-    if score <= 7:
+def rsi_color(rsi):
+    if rsi <= 25:
+        return PURPLE
+    if rsi <= 40:
+        return GREEN
+    if rsi <= 65:
         return YELLOW
-    return GREEN
+    return RED
+
+
+def car_color(score):
+    if score < 2:
+        return RED
+    if score < 5:
+        return YELLOW
+    if score < 10:
+        return GREEN
+    return PURPLE
 
 
 def shift_color(shift_pct):
@@ -52,7 +60,7 @@ def shift_color(shift_pct):
     if shift_pct >= 0.01:
         return GREEN
     if shift_pct >= -10:
-        return ORANGE
+        return YELLOW
     return RED
 
 
@@ -69,7 +77,7 @@ def format_row(calc: Calc) -> Display:
     if calc.cmp is not None:
         row.cmp = f"{round(calc.cmp, 2)}"
     if calc.rsi is not None:
-        row.rsi = f"{calc.rsi:.2f}"
+        row.rsi = colorize(f"{calc.rsi:.2f}", rsi_color(calc.rsi))
     if calc.ema_8 is not None:
         ema = f"{calc.ema_8:.2f}"
         row.ema_8 = colorize(ema, GREEN) if calc.cmp is not None and calc.cmp > calc.ema_8 else ema
@@ -87,7 +95,8 @@ def format_row(calc: Calc) -> Display:
     if calc.shift_pct is not None:
         row.shift_pct = colorize(f"{calc.shift_pct:+06.2f}", shift_color(calc.shift_pct))
     if calc.zone is not None:
-        row.zone = colorize(calc.zone, ZONE_COLOR[calc.zone])
+        zone_color = ZONE_COLOR.get(calc.zone)
+        row.zone = colorize(calc.zone, zone_color) if zone_color else calc.zone
     if calc.car is not None:
         row.car = colorize(str(calc.car), car_color(calc.car))
     if calc.high_date is not None:

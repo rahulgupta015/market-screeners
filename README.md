@@ -37,7 +37,7 @@ uv run src/dsm/screeners/dma-and-car.py --test
 ## Architecture
 
 ```text
-market universe → Ticker → compute service → Calc → display service → Display → console
+market universe -> Ticker -> compute service -> Calc -> display service -> Display -> console
 ```
 
 - `model/` contains dataclasses and market-universe data.
@@ -54,6 +54,34 @@ colors, checkmarks, and compact dates.
 The scanner calculates EMA 8, RSI(14), 30/50/100/200 DMAs, 200-DMA shift,
 52-week high/low dates and prices, days since the low, compact zone codes, and
 DMA/CAR breakout flags.
+
+### Breakouts
+
+DMA BO is independent of Zone and requires `CMP > 50 DMA > 100 DMA > 200 DMA`
+with `0% < Shift% < 10%`. DMA breakouts are sorted by Shift% ascending.
+
+CAR BO is also independent of Zone and requires CMP above the 50, 100, and
+200 DMAs, `0% < Shift% < 10%`, and `CAR >= 5`. CAR breakouts are sorted by CAR
+descending and then Shift% ascending. A ticker can appear in both breakout
+tables.
+
+### Zones
+
+Zones are display-only and never affect breakout flags:
+
+- `B++`: bullish ordering with all 50/100/200 DMAs rising
+- `B+`: CMP above all three DMAs with the 50 DMA crossing upward over the 100 or 200 DMA
+- `B--`: bearish ordering with all 50/100/200 DMAs falling
+- `B-`: CMP below all three DMAs with the 50 DMA crossing downward below the 100 or 200 DMA
+- `U`: anything else
+
+### Colors
+
+RSI uses purple through 25, green through 40, yellow through 65, and red
+above 65. EMA and DMA values are green when CMP is above them. Shift% uses
+purple above 10, green from 0.01 to 10, yellow from -10 through 0, and red
+below -10. CAR uses red below 2, yellow from 2 through 4, green from 5
+through 9, and purple from 10 upward. `52WL - 52WH` is green when positive.
 
 CAR is the custom calculation: it takes the expanding mean of closing prices
 from the 52-week-high date and scores the longest increasing tail from 10 down
