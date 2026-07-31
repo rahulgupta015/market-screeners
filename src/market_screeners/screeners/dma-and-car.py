@@ -1,6 +1,6 @@
 """Compatibility wrapper for running the scanner directly."""
 
-from dsm.cli.main import main
+from market_screeners.cli.main import main
 
 
 if __name__ == "__main__":

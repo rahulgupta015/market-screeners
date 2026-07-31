@@ -1,4 +1,4 @@
-# Daily Stock Monitor
+# Market Screeners
 
 A console stock screener for US stocks and ETFs. It downloads two years of
 daily Yahoo Finance data, computes technical indicators with
@@ -19,19 +19,19 @@ uv sync
 
 ```bash
 # Full stock and ETF universe
-uv run python -m dsm
+uv run python -m market_screeners
 
 # First 10 symbols from the sorted universe
-uv run python -m dsm --test
+uv run python -m market_screeners --test
 
 # Personal watch list
-uv run python -m dsm --my
+uv run python -m market_screeners --my
 ```
 
 Direct execution remains available:
 
 ```bash
-uv run src/dsm/screeners/dma-and-car.py --test
+uv run src/market_screeners/screeners/dma-and-car.py --test
 ```
 
 ## Architecture

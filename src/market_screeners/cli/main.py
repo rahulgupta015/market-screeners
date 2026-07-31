@@ -1,10 +1,10 @@
 import sys
 import time
 
-from dsm.model.market_universe import load_market_universe
-from dsm.model.ticker import Ticker
-from dsm.service.compute_service import scan_all
-from dsm.service.display_service import display_tickers
+from market_screeners.model.market_universe import load_market_universe
+from market_screeners.model.ticker import Ticker
+from market_screeners.service.compute_service import scan_all
+from market_screeners.service.display_service import display_tickers
 
 MY_TICKERS = ["NFXL", "ORCX", "IBIT", "BULL", "BSX", "METU", "MSFU", "AVL", "AAPU"]
 

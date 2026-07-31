@@ -3,9 +3,9 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "dsm"
+name = "market-screeners"
 version = "0.1.0"
-description = "Daily Stock Monitor - Advanced stock breakout scanner using technical analysis"
+description = "Market screeners for stocks and ETFs using technical analysis"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
@@ -15,7 +15,7 @@ dependencies = [
 ]
 
 [project.scripts]
-dsm = "dsm.cli.main:main"
+market-screeners = "market_screeners.cli.main:main"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/dsm"]
+packages = ["src/market_screeners"]

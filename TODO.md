@@ -2,8 +2,6 @@
 
 ## High priority
 
-- [ ] Consider renaming the project from `dsm` to `stock-screener`.
-
 ## Improvements
 
 - [ ] Add more market-universe validation.

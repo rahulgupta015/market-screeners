@@ -6,8 +6,8 @@ import pandas as pd
 import pandas_ta_classic as ta
 import yfinance as yf
 
-from dsm.model.calc import Calc
-from dsm.model.ticker import Ticker
+from market_screeners.model.calc import Calc
+from market_screeners.model.ticker import Ticker
 
 logging.getLogger("yfinance").setLevel(logging.CRITICAL)
 warnings.filterwarnings("ignore")

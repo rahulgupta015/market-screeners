@@ -287,7 +287,7 @@ wheels = [
 ]
 
 [[package]]
-name = "dsm"
+name = "market-screeners"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [

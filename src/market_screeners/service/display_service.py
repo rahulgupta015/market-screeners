@@ -1,8 +1,8 @@
 import re
 from datetime import datetime
 
-from dsm.model.calc import Calc
-from dsm.model.display import Display
+from market_screeners.model.calc import Calc
+from market_screeners.model.display import Display
 
 RESET = "\033[0m"
 RED = "\033[38;5;196m"

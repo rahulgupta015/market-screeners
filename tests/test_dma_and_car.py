@@ -6,12 +6,12 @@ from unittest.mock import patch
 
 import pandas as pd
 
-from dsm.model.calc import Calc
-from dsm.model.display import Display
-from dsm.model.market_universe import load_market_universe
-from dsm.model.ticker import Ticker
-from dsm.service.compute_service import compute_car, get_zone, is_car_breakout, is_dma_breakout, scan_all
-from dsm.service.display_service import (
+from market_screeners.model.calc import Calc
+from market_screeners.model.display import Display
+from market_screeners.model.market_universe import load_market_universe
+from market_screeners.model.ticker import Ticker
+from market_screeners.service.compute_service import compute_car, get_zone, is_car_breakout, is_dma_breakout, scan_all
+from market_screeners.service.display_service import (
     GREEN,
     PURPLE,
     RED,
@@ -64,7 +64,7 @@ class DmaAndCarTests(unittest.TestCase):
         tickers = [Ticker("AAA"), Ticker("BBB")]
         expected = [Calc(ticker=ticker) for ticker in tickers]
 
-        with patch("dsm.service.compute_service.compute_ticker", side_effect=expected) as compute:
+        with patch("market_screeners.service.compute_service.compute_ticker", side_effect=expected) as compute:
             actual = scan_all(tickers)
 
         self.assertEqual(actual, expected)
