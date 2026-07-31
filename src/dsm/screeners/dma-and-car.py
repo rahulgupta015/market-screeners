@@ -93,27 +93,27 @@ def get_zone(cmp, dma50, dma100, dma200):
     """
     Return the Zone label given CMP and the 50/100/200 DMAs.
 
-      BULLISH          : CMP > 50 > 100 > 200 DMA AND CMP > 1.10 * 200 DMA
-      ENTERING BULLISH  : CMP > 50 > 100 > 200 DMA AND 200 DMA < CMP <= 1.10 * 200 DMA
-      ENTERING BEARISH  : CMP < 50 < 100 < 200 DMA AND 0.90 * 200 DMA <= CMP < 200 DMA
-      BEARISH           : CMP < 50 < 100 < 200 DMA AND CMP < 0.90 * 200 DMA
-      UNCONFIRMED       : anything else (incl. missing DMAs / not stacked cleanly)
+      B++ : CMP > 50 > 100 > 200 DMA AND CMP > 1.10 * 200 DMA
+      B+  : CMP > 50 > 100 > 200 DMA AND 200 DMA < CMP <= 1.10 * 200 DMA
+      B-  : CMP < 50 < 100 < 200 DMA AND 0.90 * 200 DMA <= CMP < 200 DMA
+      B-- : CMP < 50 < 100 < 200 DMA AND CMP < 0.90 * 200 DMA
+      U   : anything else (incl. missing DMAs / not stacked cleanly)
     """
     if dma50 is None or dma100 is None or dma200 is None:
-        return "UNCONFIRMED"
+        return "U"
 
     bullish_stack = cmp > dma50 > dma100 > dma200
     bearish_stack = cmp < dma50 < dma100 < dma200
 
     if bullish_stack and cmp > 1.10 * dma200:
-        return "BULLISH"
+        return "B++" # Bullish
     if bullish_stack and dma200 < cmp <= 1.10 * dma200:
-        return "ENTERING BULLISH"
+        return "B+" # Entering Bullish
     if bearish_stack and cmp < 0.90 * dma200:
-        return "BEARISH"
+        return "B--" # Bearish
     if bearish_stack and 0.90 * dma200 <= cmp < dma200:
-        return "ENTERING BEARISH"
-    return "UNCONFIRMED"
+        return "B-" # Entering Bearish
+    return "U" # Unconfirmed
 
 
 def get_market_cap_billions(ticker):
@@ -195,8 +195,8 @@ def compute_indicators(ticker):
         zone = get_zone(cmp, dma_50, dma_100, dma_200)
         raw["Zone"] = zone
 
-        # DMA Alignment breakout: Zone is ENTERING BULLISH
-        raw["DMA BO"] = (zone == "ENTERING BULLISH")
+        # DMA Alignment breakout: Zone is B+
+        raw["DMA BO"] = (zone == "B+")
 
         # 52-week high/low, CAR score, days since 52W low
         # (all require a full year of history; left as None otherwise)
@@ -265,11 +265,11 @@ def scan_all(ticker_list):
 # Formatting (kept separate from the calculation above)
 # ---------------------------------------------------------------------
 ZONE_COLOR = {
-    "BULLISH":         PURPLE,
-    "ENTERING BULLISH": GREEN,
-    "UNCONFIRMED":      YELLOW,
-    "ENTERING BEARISH": ORANGE,
-    "BEARISH":          RED,
+    "B++": PURPLE,
+    "B+":  GREEN,
+    "U":   YELLOW,
+    "B-":  ORANGE,
+    "B--": RED,
 }
 
 
