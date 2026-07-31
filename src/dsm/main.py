@@ -5,7 +5,7 @@ from dsm.etfs_us_100m_1m_options import ETFS_BY_SYMBOL
 
 # Small fixed sample for quick --test runs.
 TEST_TICKERS = [
-    "BULL", "BSX", "NFXL", "ORCX", "IBIT", "MSFU", "METU",
+    "NFXL", "ORCX", "IBIT", "BULL", "BSX",
 ]
 
 

@@ -439,7 +439,18 @@ if __name__ == "__main__":
 
 
 # TODO for ai:
-# Rename the file stock-status.py appropriately and remove stock.py as thats old now and fix the project accordingly
+# Remove stock.py, rename the file stock-status.py appropriately and then the project files and structure accordingly
+#
+# I think lets have 3 py files - one that we will call, one for compute and prepare indicators and 1 for display if that makes sense
+#
+# Modify the --test option to actually use the MARKET_CAP_BY_SYMBOL but use only 10 entries from it.
+#
+# Rename the TEST_TICKERS to MY_TICKERS and introduce a new option called --my where it will scan and process MY_TICKERS
+#
+# In column DMA BO and CAR BO, bring BO under DMA and CAR, this will shorten the column
+# In column Market Cap ($B), bring Cap under Market to shorten the column
+#
+# Create a readme file - 1 single file
 
 
 # TODO for me:
