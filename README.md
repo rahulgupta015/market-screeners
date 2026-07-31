@@ -4,6 +4,23 @@ A console stock screener for US stocks and ETFs. It downloads two years of
 daily Yahoo Finance data, computes technical indicators with
 `pandas-ta-classic`, and prints a status table for every requested ticker.
 
+## Attribution and Disclaimer
+
+Thanks to [Mahesh Chander Kaushik (Mahesh Kaushik)](https://www.maheshkaushik.com/)
+for sharing the educational material that inspired this project. The logic in
+this repository is derived from his blog posts and videos; none of the
+algorithmic logic is mine. This repository is an independent implementation
+for educational purposes and is not affiliated with or endorsed by Mahesh
+Kaushik.
+
+Please see his [official website](https://www.maheshkaushik.com/),
+[YouTube channel](https://www.youtube.com/maheshchanderkaushik), and related
+[YouTube video playlist](https://www.youtube.com/playlist?list=PL-X8WTMcEbY9PwIlpUbaMtp1JNNtdcWyM)
+for the original educational material. Related videos include [How to find
+best stocks using a data bank](https://youtu.be/BYm-rppAHSc) and [How to build
+your own data bank](https://youtu.be/1z-xatk8LKg). Nothing in this project is investment
+advice; always do your own research and consult a qualified professional.
+
 ## Requirements
 
 - Python 3.12 or newer
