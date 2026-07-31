@@ -5,6 +5,7 @@
 # -------------------------------------------------------------------------
 # Run command:
 # uv run src/dsm/screeners/stock-status.py
+# uv run src/dsm/screeners/stock-status.py --test
 
 import re
 import sys
@@ -13,27 +14,13 @@ import pandas as pd
 import warnings
 import logging
 from datetime import datetime
-from pathlib import Path
 
-# Make sure `src/` is importable regardless of how this script is invoked
-# (uv run with the file path directly doesn't add `src/` to sys.path unless
-# `dsm` is installed as a package, so we add it ourselves here).
-SRC_DIR = Path(__file__).resolve().parents[2]
-if str(SRC_DIR) not in sys.path:
-    sys.path.insert(0, str(SRC_DIR))
-
+from dsm.main import TEST_TICKERS
 from dsm.stocks_us_50b_1m_options import STOCKS_BY_SYMBOL
 from dsm.etfs_us_100m_1m_options import ETFS_BY_SYMBOL
 
 logging.getLogger('yfinance').setLevel(logging.CRITICAL)
 warnings.filterwarnings('ignore')
-
-# Small sample for testing. Swap in any symbols from STOCKS_BY_SYMBOL /
-# ETFS_BY_SYMBOL (src/dsm/stocks_us_50b_1m_options.py and
-# etfs_us_100m_1m_options.py) once ready to scan the full universe.
-TICKERS = [
-    "AAPL", "MSFT", "NVDA", "GOOGL", "AMZN", "TSLA", "JPM", "VOO", "SPY", "QQQM",
-]
 
 # Combined lookup so a ticker can be resolved regardless of whether it's a
 # stock or an ETF.
@@ -338,16 +325,17 @@ def print_results(results):
 
 
 if __name__ == "__main__":
-    results = scan_all(MARKET_CAP_BY_SYMBOL)
+    use_test = "--test" in sys.argv
+    tickers = TEST_TICKERS if use_test else list(MARKET_CAP_BY_SYMBOL)
+    if use_test:
+        print(f"(Running in TEST mode with {len(tickers)} tickers)\n")
+
+    results = scan_all(tickers)
     print()
     print_results(results)
 
 
 # TODO for ai:
-# Clean the file of code that uses for src, dir , parent etc for loading the config file
-# The main.py has a list of tickers for test as TEST_TICKERS. Configure the stock-status.py
-# such that when I say --test, then it uses TEST_TICKERS instead of MARKET_CAP_BY_SYMBOL
-#
 # Rename the file stock-status.py appropriately and remove stock.py as thats old now and fix the project accordingly
 #
 # Print the execution time in the end
@@ -366,4 +354,3 @@ if __name__ == "__main__":
 
 # TODO for me:
 # Fix ETFS list - TQQQ, SPY, NFXL, METU, MSFU, MUU, ORCX and any other
-
