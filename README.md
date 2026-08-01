@@ -84,7 +84,7 @@ uv run python -m market_screeners --my
 Direct execution remains available:
 
 ```bash
-uv run src/market_screeners/screeners/dma-and-car.py --test
+uv run src/market_screeners/screeners/dma_car_mac.py --test
 ```
 
 ## Architecture
@@ -116,7 +116,11 @@ with `0% < Shift% < 10%`. DMA breakouts are sorted by Shift% ascending.
 CAR BO is also independent of Zone and requires CMP above the 50, 100, and
 200 DMAs, `0% < Shift% < 10%`, and `CAR >= 5`. CAR breakouts are sorted by CAR
 descending and then Shift% ascending. A ticker can appear in both breakout
-tables.
+tables. MAC BO is an independent moving-average compression setup: CMP and the
+50, 100, and 200 DMAs must all be within 3% of the lowest of those four values.
+MAC breakouts are sorted by Shift% in the 200 DMA ascending. A ticker can
+appear in any combination of the three breakout tables. The remaining tickers
+appear in the Others table.
 
 ### Zones
 

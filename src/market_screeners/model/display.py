@@ -10,6 +10,7 @@ class Display:
     cmp: str = "-"
     dma_bo: str = ""
     car_bo: str = ""
+    mac_bo: str = ""
     rsi: str = "-"
     ema_8: str = "-"
     dma_30: str = "-"
@@ -31,6 +32,7 @@ class Display:
         "CMP": "cmp",
         "DMA BO": "dma_bo",
         "CAR BO": "car_bo",
+        "MAC BO": "mac_bo",
         "RSI": "rsi",
         "EMA 8": "ema_8",
         "30 DMA": "dma_30",

@@ -111,6 +111,16 @@ def is_car_breakout(calc: Calc) -> bool:
     )
 
 
+def is_mac_breakout(calc: Calc) -> bool:
+    """Return whether CMP and the 50/100/200 DMAs are compressed within 3%."""
+    values = (calc.cmp, calc.dma_50, calc.dma_100, calc.dma_200)
+    if any(value is None or value <= 0 for value in values):
+        return False
+    lowest = min(values)
+    spread_pct = ((max(values) - lowest) / lowest) * 100
+    return spread_pct <= 3
+
+
 def compute_ticker(ticker: Ticker) -> Calc:
     """Fetch market data and return one raw calculation record."""
     calc = Calc(ticker=ticker)
@@ -165,6 +175,7 @@ def compute_ticker(ticker: Ticker) -> Calc:
 
         calc.dma_bo = is_dma_breakout(calc)
         calc.car_bo = is_car_breakout(calc)
+        calc.mac_bo = is_mac_breakout(calc)
     except Exception as exc:
         calc.error = ("ERROR", str(exc))
 

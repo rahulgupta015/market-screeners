@@ -10,7 +10,14 @@ from market_screeners.model.calc import Calc
 from market_screeners.model.display import Display
 from market_screeners.model.market_universe import load_market_universe
 from market_screeners.model.ticker import Ticker
-from market_screeners.service.compute_service import compute_car, get_zone, is_car_breakout, is_dma_breakout, scan_all
+from market_screeners.service.compute_service import (
+    compute_car,
+    get_zone,
+    is_car_breakout,
+    is_dma_breakout,
+    is_mac_breakout,
+    scan_all,
+)
 from market_screeners.service.display_service import (
     GREEN,
     PURPLE,
@@ -24,7 +31,7 @@ from market_screeners.service.display_service import (
 )
 
 
-class DmaAndCarTests(unittest.TestCase):
+class DmaCarMacTests(unittest.TestCase):
     def test_zone_codes_preserve_zone_rules(self):
         self.assertEqual(
             get_zone(120, 100, 90, 80, {50: 99, 100: 89, 200: 79}),
@@ -99,6 +106,17 @@ class DmaAndCarTests(unittest.TestCase):
         self.assertTrue(is_dma_breakout(calc))
         self.assertFalse(is_car_breakout(calc))
 
+    def test_mac_breakout_requires_all_values_within_three_percent(self):
+        compressed = Calc(
+            ticker=Ticker("MAC"), cmp=101, dma_50=100.5, dma_100=100, dma_200=99
+        )
+        expanded = Calc(
+            ticker=Ticker("NOT_MAC"), cmp=104, dma_50=101, dma_100=100, dma_200=99
+        )
+
+        self.assertTrue(is_mac_breakout(compressed))
+        self.assertFalse(is_mac_breakout(expanded))
+
     def test_display_formatting_returns_display_model(self):
         calc = Calc(
             ticker=Ticker("TEST"),
@@ -120,16 +138,18 @@ class DmaAndCarTests(unittest.TestCase):
         dma_only = Calc(ticker=Ticker("DMA"), dma_bo=True, shift_pct=2)
         car_only = Calc(ticker=Ticker("CAR"), car_bo=True, car=6, shift_pct=3)
         both = Calc(ticker=Ticker("BOTH"), dma_bo=True, car_bo=True, car=7, shift_pct=1)
+        mac = Calc(ticker=Ticker("MAC"), mac_bo=True, shift_pct=4)
         other = Calc(ticker=Ticker("OTHER"))
         output = StringIO()
 
         with redirect_stdout(output):
-            print_results([dma_only, car_only, both, other])
+            print_results([dma_only, car_only, both, mac, other])
 
         rendered = output.getvalue()
         self.assertLess(rendered.index("DMA Breakout"), rendered.index("CAR Breakout"))
-        self.assertLess(rendered.index("CAR Breakout"), rendered.index("Others"))
-        self.assertIn("Total: 4 symbols (2 DMA breakouts, 2 CAR breakouts, 1 others)", rendered)
+        self.assertLess(rendered.index("CAR Breakout"), rendered.index("MAC Breakout"))
+        self.assertLess(rendered.index("MAC Breakout"), rendered.index("Others"))
+        self.assertIn("Total: 5 symbols (2 DMA breakouts, 2 CAR breakouts, 1 MAC breakouts, 1 others)", rendered)
 
     def test_color_thresholds(self):
         self.assertEqual(rsi_color(25), PURPLE)

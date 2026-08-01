@@ -13,6 +13,7 @@ class Calc:
     cmp: float | None = None
     dma_bo: bool = False
     car_bo: bool = False
+    mac_bo: bool = False
     ema_8: float | None = None
     rsi: float | None = None
     dma_30: float | None = None

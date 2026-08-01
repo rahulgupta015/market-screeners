@@ -22,11 +22,12 @@ def yahoo_response(closes, high_override=None):
 
 
 class YahooFinanceIntegrationTests(unittest.TestCase):
-    def test_cli_renders_all_three_tables_from_mocked_yahoo_response(self):
-        breakout_closes = [100] * 48 + [100 + (5 * i / 251) for i in range(252)]
+    def test_cli_renders_all_four_tables_from_mocked_yahoo_response(self):
+        breakout_closes = [100] * 48 + [100 + (8 * i / 251) for i in range(252)]
         responses = {
             "AAA": yahoo_response(breakout_closes, high_override=48),
-            "BBB": yahoo_response([100] * 300),
+            "BBB": yahoo_response([100] * 200 + [100 - (10 * i / 99) for i in range(100)]),
+            "CCC": yahoo_response([100] * 299 + [99]),
         }
 
         def mocked_download(symbol, **kwargs):
@@ -43,13 +44,14 @@ class YahooFinanceIntegrationTests(unittest.TestCase):
             main()
 
         rendered = output.getvalue()
-        self.assertEqual(download.call_count, 2)
+        self.assertEqual(download.call_count, 3)
         self.assertIn("--- DMA Breakout", rendered)
         self.assertIn("--- CAR Breakout", rendered)
+        self.assertIn("--- MAC Breakout", rendered)
         self.assertIn("--- Others", rendered)
         self.assertIn("AAA", rendered)
         self.assertIn("BBB", rendered)
-        self.assertIn("Total: 2 symbols (1 DMA breakouts, 1 CAR breakouts, 1 others)", rendered)
+        self.assertIn("Total: 3 symbols (1 DMA breakouts, 1 CAR breakouts, 1 MAC breakouts, 1 others)", rendered)
 
 
 if __name__ == "__main__":

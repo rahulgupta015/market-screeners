@@ -70,6 +70,7 @@ def format_row(calc: Calc) -> Display:
         stock=calc.ticker.symbol,
         dma_bo=GREEN_CHECK if calc.dma_bo else "",
         car_bo=GREEN_CHECK if calc.car_bo else "",
+        mac_bo=GREEN_CHECK if calc.mac_bo else "",
     )
 
     if calc.ticker.market_cap_b is not None:
@@ -115,7 +116,7 @@ def format_row(calc: Calc) -> Display:
 
 
 DISPLAY_COLS = [
-    "Stock", "Market Cap ($B)", "CMP", "DMA BO", "CAR BO", "RSI", "EMA 8",
+    "Stock", "Market Cap ($B)", "CMP", "DMA BO", "CAR BO", "MAC BO", "RSI", "EMA 8",
     "30 DMA", "50 DMA", "100 DMA", "200 DMA", "Shift %", "CAR", "Zone",
     "52W High", "52W Low", "Days Since 52W Low", "52W High Price", "52W Low Price",
 ]
@@ -124,6 +125,7 @@ SPLIT_HEADERS = {
     "Market Cap ($B)": ("Cap", "($B)"),
     "DMA BO": ("DMA", "BO"),
     "CAR BO": ("CAR", "BO"),
+    "MAC BO": ("MAC", "BO"),
     "RSI": ("RSI", ""),
     "EMA 8": ("8", "EMA"),
     "30 DMA": ("30", "DMA"),
@@ -165,7 +167,11 @@ def print_results(calculations: list[Calc]) -> None:
 
     dma_breakouts = [calc for calc in calculations if calc.dma_bo]
     car_breakouts = [calc for calc in calculations if calc.car_bo]
-    others = [calc for calc in calculations if not calc.dma_bo and not calc.car_bo]
+    mac_breakouts = [calc for calc in calculations if calc.mac_bo]
+    others = [
+        calc for calc in calculations
+        if not calc.dma_bo and not calc.car_bo and not calc.mac_bo
+    ]
     dma_breakouts.sort(key=lambda calc: calc.shift_pct if calc.shift_pct is not None else float("inf"))
     car_breakouts.sort(
         key=lambda calc: (
@@ -173,12 +179,14 @@ def print_results(calculations: list[Calc]) -> None:
             calc.shift_pct if calc.shift_pct is not None else float("inf"),
         )
     )
+    mac_breakouts.sort(key=lambda calc: calc.shift_pct if calc.shift_pct is not None else float("inf"))
     others.sort(key=lambda calc: calc.ticker.symbol)
 
     dma_breakout_rows = [format_row(calc) for calc in dma_breakouts]
     car_breakout_rows = [format_row(calc) for calc in car_breakouts]
+    mac_breakout_rows = [format_row(calc) for calc in mac_breakouts]
     other_rows = [format_row(calc) for calc in others]
-    all_rows = dma_breakout_rows + car_breakout_rows + other_rows
+    all_rows = dma_breakout_rows + car_breakout_rows + mac_breakout_rows + other_rows
     widths = {}
     for column in DISPLAY_COLS:
         value_width = max((visible_len(str(row[column])) for row in all_rows), default=0)
@@ -202,13 +210,22 @@ def print_results(calculations: list[Calc]) -> None:
     else:
         print("(none)")
 
+    print("\n--- MAC Breakout (sorted by Shift% in 200 DMA asc) ---")
+    print("MAC BO: CMP and 50/100/200 DMA values are all within 3% of the lowest value.\n")
+    if mac_breakout_rows:
+        for line in _table_lines(mac_breakout_rows, widths):
+            print(line)
+    else:
+        print("(none)")
+
     print("\n--- Others (sorted by Symbol) ---\n")
     for line in _table_lines(other_rows, widths):
         print(line)
     print(
         f"\nTotal: {len(calculations)} symbols "
         f"({len(dma_breakout_rows)} DMA breakouts, "
-        f"{len(car_breakout_rows)} CAR breakouts, {len(other_rows)} others)\n"
+        f"{len(car_breakout_rows)} CAR breakouts, "
+        f"{len(mac_breakout_rows)} MAC breakouts, {len(other_rows)} others)\n"
     )
 
 
