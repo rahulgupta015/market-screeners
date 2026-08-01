@@ -81,6 +81,13 @@ def _last_two_indicator(indicator):
     return float(indicator.iloc[-1]), float(indicator.iloc[-2])
 
 
+def _relative_value(value, average):
+    """Return a value divided by its average, or None when unavailable."""
+    if value is None or average is None or average == 0:
+        return None
+    return value / average
+
+
 def is_dma_breakout(calc: Calc) -> bool:
     """Return whether a calculation meets the independent DMA BO rule."""
     return (
@@ -133,6 +140,19 @@ def compute_ticker(ticker: Ticker) -> Calc:
 
         close_prices = data["Close"].squeeze()
         calc.cmp = float(close_prices.iloc[-1])
+        if "Volume" in data:
+            volume = data["Volume"].squeeze()
+            volume_sma_20 = ta.sma(volume, length=20)
+            calc.rvol = _relative_value(
+                _last_indicator(volume), _last_indicator(volume_sma_20)
+            )
+            obv = ta.obv(close_prices, volume)
+            obv_sma_20 = ta.sma(obv, length=20)
+            calc.obv = _last_indicator(obv)
+            calc.obv_sma_20 = _last_indicator(obv_sma_20)
+            calc.robv = _relative_value(
+                calc.obv, calc.obv_sma_20
+            )
         calc.ema_8 = _last_indicator(ta.ema(close_prices, length=8))
         calc.rsi = _last_indicator(ta.rsi(close_prices, length=14))
 

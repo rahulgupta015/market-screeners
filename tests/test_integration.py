@@ -17,12 +17,17 @@ def yahoo_response(closes, high_override=None):
     if high_override is not None:
         highs.iloc[high_override] = close_series.iloc[high_override] + 10
     return pd.DataFrame(
-        {"Close": close_series, "High": highs, "Low": close_series - 0.5}
+        {
+            "Close": close_series,
+            "High": highs,
+            "Low": close_series - 0.5,
+            "Volume": pd.Series([1000] * len(closes), index=close_series.index),
+        }
     )
 
 
 class YahooFinanceIntegrationTests(unittest.TestCase):
-    def test_cli_renders_all_four_tables_from_mocked_yahoo_response(self):
+    def test_cli_renders_two_tables_from_mocked_yahoo_response(self):
         breakout_closes = [100] * 48 + [100 + (8 * i / 251) for i in range(252)]
         responses = {
             "AAA": yahoo_response(breakout_closes, high_override=48),
@@ -45,13 +50,11 @@ class YahooFinanceIntegrationTests(unittest.TestCase):
 
         rendered = output.getvalue()
         self.assertEqual(download.call_count, 3)
-        self.assertIn("--- DMA Breakout", rendered)
-        self.assertIn("--- CAR Breakout", rendered)
-        self.assertIn("--- MAC Breakout", rendered)
+        self.assertIn("--- Breakouts", rendered)
         self.assertIn("--- Others", rendered)
         self.assertIn("AAA", rendered)
         self.assertIn("BBB", rendered)
-        self.assertIn("Total: 3 symbols (1 DMA breakouts, 1 CAR breakouts, 1 MAC breakouts, 1 others)", rendered)
+        self.assertIn("Total: 3 symbols (2 breakouts, 1 others)", rendered)
 
 
 if __name__ == "__main__":

@@ -9,7 +9,6 @@ RED = "\033[38;5;196m"
 GREEN = "\033[92m"
 YELLOW = "\033[38;5;229m"
 PURPLE = "\033[38;5;183m"
-GREEN_CHECK = f"{GREEN}\u2714{RESET}"
 ANSI_RE = re.compile(r"\033\[[0-9;]*m")
 
 ZONE_COLOR = {
@@ -18,6 +17,13 @@ ZONE_COLOR = {
     "B-": YELLOW,
     "B--": RED,
 }
+
+BREAKOUT_CODES = (
+    ("D", "dma_bo"),
+    ("C", "car_bo"),
+    ("M", "mac_bo"),
+)
+BREAKOUT_CODE_ORDER = {"DCM": 0, "DC": 1, "DM": 2, "CM": 3, "D": 4, "C": 5, "M": 6}
 
 
 def visible_len(value):
@@ -29,7 +35,7 @@ def vjust(value, width):
 
 
 def colorize(value, color):
-    if not value or value == "-":
+    if not value or value == "-" or color is None:
         return value
     return f"{color}{value}{RESET}"
 
@@ -54,6 +60,36 @@ def car_color(score):
     return PURPLE
 
 
+def rvol_color(value):
+    if value >= 1.5:
+        return GREEN
+    if value >= 0.9:
+        return YELLOW
+    return None
+
+
+def robv_color(obv, obv_sma_20):
+    if obv is None or obv_sma_20 is None:
+        return None
+    if obv > 0 and obv > obv_sma_20:
+        return GREEN
+    if obv < 0 and obv < obv_sma_20:
+        return RED
+    return None
+
+
+def days_since_low_color(days):
+    if days > 90:
+        return PURPLE
+    if days >= 30:
+        return GREEN
+    return None
+
+
+def breakout_code(calc: Calc):
+    return "".join(code for code, field in BREAKOUT_CODES if getattr(calc, field))
+
+
 def shift_color(shift_pct):
     if shift_pct > 10:
         return PURPLE
@@ -68,15 +104,19 @@ def format_row(calc: Calc) -> Display:
     """Convert one raw calculation record into a display record."""
     row = Display(
         stock=calc.ticker.symbol,
-        dma_bo=GREEN_CHECK if calc.dma_bo else "",
-        car_bo=GREEN_CHECK if calc.car_bo else "",
-        mac_bo=GREEN_CHECK if calc.mac_bo else "",
+        dcm=breakout_code(calc),
     )
 
     if calc.ticker.market_cap_b is not None:
         row.market_cap = f"{calc.ticker.market_cap_b}"
     if calc.cmp is not None:
         row.cmp = f"{round(calc.cmp, 2)}"
+    if calc.rvol is not None:
+        row["RVOL"] = colorize(f"{calc.rvol:.2f}", rvol_color(calc.rvol))
+    if calc.robv is not None:
+        row["ROBV"] = colorize(
+            f"{calc.robv:+.2f}", robv_color(calc.obv, calc.obv_sma_20)
+        )
     if calc.rsi is not None:
         row.rsi = colorize(f"{calc.rsi:.2f}", rsi_color(calc.rsi))
     if calc.ema_8 is not None:
@@ -110,22 +150,23 @@ def format_row(calc: Calc) -> Display:
         row.low_price = f"{calc.low_price:.2f}"
     if calc.days_since_low is not None:
         days = f"{calc.days_since_low:+d}"
-        row.days_since_low = colorize(days, GREEN) if calc.days_since_low > 0 else days
+        days_color = days_since_low_color(calc.days_since_low)
+        row.days_since_low = colorize(days, days_color) if days_color else days
 
     return row
 
 
 DISPLAY_COLS = [
-    "Stock", "Market Cap ($B)", "CMP", "DMA BO", "CAR BO", "MAC BO", "RSI", "EMA 8",
+    "Stock", "Market Cap ($B)", "CMP", "DCM", "RVOL", "ROBV", "RSI", "EMA 8",
     "30 DMA", "50 DMA", "100 DMA", "200 DMA", "Shift %", "CAR", "Zone",
     "52W High", "52W Low", "Days Since 52W Low", "52W High Price", "52W Low Price",
 ]
 
 SPLIT_HEADERS = {
     "Market Cap ($B)": ("Cap", "($B)"),
-    "DMA BO": ("DMA", "BO"),
-    "CAR BO": ("CAR", "BO"),
-    "MAC BO": ("MAC", "BO"),
+    "DCM": ("DCM", ""),
+    "RVOL": ("RVOL", ""),
+    "ROBV": ("ROBV", ""),
     "RSI": ("RSI", ""),
     "EMA 8": ("8", "EMA"),
     "30 DMA": ("30", "DMA"),
@@ -142,19 +183,20 @@ SPLIT_HEADERS = {
 
 
 def _table_lines(rows, widths):
-    separator = "+-" + "-+-".join("-" * widths[column] for column in DISPLAY_COLS) + "-+"
+    columns = DISPLAY_COLS
+    separator = "+-" + "-+-".join("-" * widths[column] for column in columns) + "-+"
     header_one = "| " + " | ".join(
         SPLIT_HEADERS[column][0].ljust(widths[column]) if column in SPLIT_HEADERS else "".ljust(widths[column])
-        for column in DISPLAY_COLS
+        for column in columns
     ) + " |"
     header_two = "| " + " | ".join(
         SPLIT_HEADERS[column][1].ljust(widths[column]) if column in SPLIT_HEADERS else column.ljust(widths[column])
-        for column in DISPLAY_COLS
+        for column in columns
     ) + " |"
 
     lines = [separator, header_one, header_two, separator]
     for row in rows:
-        lines.append("| " + " | ".join(vjust(str(row[column]), widths[column]) for column in DISPLAY_COLS) + " |")
+        lines.append("| " + " | ".join(vjust(str(row[column]), widths[column]) for column in columns) + " |")
     lines.append(separator)
     return lines
 
@@ -165,28 +207,24 @@ def print_results(calculations: list[Calc]) -> None:
         print("No results to display.")
         return
 
-    dma_breakouts = [calc for calc in calculations if calc.dma_bo]
-    car_breakouts = [calc for calc in calculations if calc.car_bo]
-    mac_breakouts = [calc for calc in calculations if calc.mac_bo]
+    breakout_calculations = [
+        calc for calc in calculations if calc.dma_bo or calc.car_bo or calc.mac_bo
+    ]
     others = [
         calc for calc in calculations
         if not calc.dma_bo and not calc.car_bo and not calc.mac_bo
     ]
-    dma_breakouts.sort(key=lambda calc: calc.shift_pct if calc.shift_pct is not None else float("inf"))
-    car_breakouts.sort(
+    breakout_calculations.sort(
         key=lambda calc: (
-            -(calc.car if calc.car is not None else float("-inf")),
+            BREAKOUT_CODE_ORDER[breakout_code(calc)],
             calc.shift_pct if calc.shift_pct is not None else float("inf"),
         )
     )
-    mac_breakouts.sort(key=lambda calc: calc.shift_pct if calc.shift_pct is not None else float("inf"))
     others.sort(key=lambda calc: calc.ticker.symbol)
 
-    dma_breakout_rows = [format_row(calc) for calc in dma_breakouts]
-    car_breakout_rows = [format_row(calc) for calc in car_breakouts]
-    mac_breakout_rows = [format_row(calc) for calc in mac_breakouts]
+    breakout_rows = [format_row(calc) for calc in breakout_calculations]
     other_rows = [format_row(calc) for calc in others]
-    all_rows = dma_breakout_rows + car_breakout_rows + mac_breakout_rows + other_rows
+    all_rows = breakout_rows + other_rows
     widths = {}
     for column in DISPLAY_COLS:
         value_width = max((visible_len(str(row[column])) for row in all_rows), default=0)
@@ -194,26 +232,10 @@ def print_results(calculations: list[Calc]) -> None:
         widths[column] = max(header_width, value_width)
 
     print(f"Date: {datetime.now().strftime('%b-%d-%Y')}\n")
-    print("--- DMA Breakout (sorted by Shift% asc) ---")
-    print("DMA BO: CMP > 50 DMA > 100 DMA > 200 DMA; 0% < Shift% < 10%.\n")
-    if dma_breakout_rows:
-        for line in _table_lines(dma_breakout_rows, widths):
-            print(line)
-    else:
-        print("(none)")
-
-    print("\n--- CAR Breakout (sorted by CAR desc, Shift% asc) ---")
-    print("CAR BO: CMP > 50/100/200 DMA; 0% < Shift% < 10%; CAR >= 5.\n")
-    if car_breakout_rows:
-        for line in _table_lines(car_breakout_rows, widths):
-            print(line)
-    else:
-        print("(none)")
-
-    print("\n--- MAC Breakout (sorted by Shift% in 200 DMA asc) ---")
-    print("MAC BO: CMP and 50/100/200 DMA values are all within 3% of the lowest value.\n")
-    if mac_breakout_rows:
-        for line in _table_lines(mac_breakout_rows, widths):
+    print("--- Breakouts (sorted by DCM, then Shift% asc) ---")
+    print("DCM: D = DMA BO, C = CAR BO, M = MAC BO.\n")
+    if breakout_rows:
+        for line in _table_lines(breakout_rows, widths):
             print(line)
     else:
         print("(none)")
@@ -223,9 +245,7 @@ def print_results(calculations: list[Calc]) -> None:
         print(line)
     print(
         f"\nTotal: {len(calculations)} symbols "
-        f"({len(dma_breakout_rows)} DMA breakouts, "
-        f"{len(car_breakout_rows)} CAR breakouts, "
-        f"{len(mac_breakout_rows)} MAC breakouts, {len(other_rows)} others)\n"
+        f"({len(breakout_rows)} breakouts, {len(other_rows)} others)\n"
     )
 
 

@@ -8,9 +8,9 @@ class Display:
     stock: str
     market_cap: str = "-"
     cmp: str = "-"
-    dma_bo: str = ""
-    car_bo: str = ""
-    mac_bo: str = ""
+    dcm: str = ""
+    rvol: str = "-"
+    robv: str = "-"
     rsi: str = "-"
     ema_8: str = "-"
     dma_30: str = "-"
@@ -30,9 +30,9 @@ class Display:
         "Stock": "stock",
         "Market Cap ($B)": "market_cap",
         "CMP": "cmp",
-        "DMA BO": "dma_bo",
-        "CAR BO": "car_bo",
-        "MAC BO": "mac_bo",
+        "DCM": "dcm",
+        "RVOL": "rvol",
+        "ROBV": "robv",
         "RSI": "rsi",
         "EMA 8": "ema_8",
         "30 DMA": "dma_30",

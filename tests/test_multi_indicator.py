@@ -24,14 +24,17 @@ from market_screeners.service.display_service import (
     RED,
     YELLOW,
     car_color,
+    days_since_low_color,
     format_row,
     print_results,
     rsi_color,
+    robv_color,
+    rvol_color,
     shift_color,
 )
 
 
-class DmaCarMacTests(unittest.TestCase):
+class MultiIndicatorTests(unittest.TestCase):
     def test_zone_codes_preserve_zone_rules(self):
         self.assertEqual(
             get_zone(120, 100, 90, 80, {50: 99, 100: 89, 200: 79}),
@@ -146,10 +149,24 @@ class DmaCarMacTests(unittest.TestCase):
             print_results([dma_only, car_only, both, mac, other])
 
         rendered = output.getvalue()
-        self.assertLess(rendered.index("DMA Breakout"), rendered.index("CAR Breakout"))
-        self.assertLess(rendered.index("CAR Breakout"), rendered.index("MAC Breakout"))
-        self.assertLess(rendered.index("MAC Breakout"), rendered.index("Others"))
-        self.assertIn("Total: 5 symbols (2 DMA breakouts, 2 CAR breakouts, 1 MAC breakouts, 1 others)", rendered)
+        self.assertLess(rendered.index("Breakouts"), rendered.index("Others"))
+        self.assertIn("DCM", rendered)
+        self.assertIn("Total: 5 symbols (4 breakouts, 1 others)", rendered)
+        self.assertEqual(format_row(dma_only)["DCM"], "D")
+        self.assertEqual(format_row(car_only)["DCM"], "C")
+        self.assertEqual(format_row(both)["DCM"], "DC")
+        self.assertEqual(format_row(mac)["DCM"], "M")
+
+    def test_table_keeps_indicator_and_52_week_columns_horizontal(self):
+        output = StringIO()
+
+        with redirect_stdout(output):
+            print_results([Calc(ticker=Ticker("TEST"), rvol=1.2, robv=1.1)])
+
+        rendered = output.getvalue()
+        self.assertEqual(rendered.count("| Stock"), 1)
+        self.assertIn("RVOL", rendered)
+        self.assertIn("52WH", rendered)
 
     def test_color_thresholds(self):
         self.assertEqual(rsi_color(25), PURPLE)
@@ -164,6 +181,40 @@ class DmaCarMacTests(unittest.TestCase):
         self.assertEqual(car_color(2), YELLOW)
         self.assertEqual(car_color(5), GREEN)
         self.assertEqual(car_color(10), PURPLE)
+        self.assertEqual(rvol_color(1.5), GREEN)
+        self.assertEqual(rvol_color(0.9), YELLOW)
+        self.assertIsNone(rvol_color(0.89))
+        self.assertEqual(robv_color(10, 5), GREEN)
+        self.assertEqual(robv_color(-10, -5), RED)
+        self.assertIsNone(robv_color(-5, -10))
+        self.assertIsNone(robv_color(5, 10))
+        self.assertEqual(days_since_low_color(91), PURPLE)
+        self.assertEqual(days_since_low_color(30), GREEN)
+        self.assertIsNone(days_since_low_color(29))
+
+    def test_display_formats_relative_volume_columns_and_52_week_color(self):
+        calc = Calc(
+            ticker=Ticker("TEST"),
+            rvol=1.2,
+            robv=1.25,
+            obv=125,
+            obv_sma_20=100,
+            days_since_low=95,
+        )
+
+        row = format_row(calc)
+
+        self.assertIn(YELLOW, row["RVOL"])
+        self.assertIn(GREEN, row["ROBV"])
+        self.assertIn(PURPLE, row["Days Since 52W Low"])
+        self.assertEqual(row["RVOL"].replace(YELLOW, "").replace("\033[0m", ""), "1.20")
+        self.assertIn("+1.25", row["ROBV"])
+
+    def test_display_colors_negative_bearish_robv_red(self):
+        row = format_row(Calc(ticker=Ticker("TEST"), robv=-1.25, obv=-125, obv_sma_20=-100))
+
+        self.assertIn(RED, row["ROBV"])
+        self.assertIn("-1.25", row["ROBV"])
 
 
 if __name__ == "__main__":

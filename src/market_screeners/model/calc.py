@@ -11,6 +11,10 @@ class Calc:
 
     ticker: Ticker
     cmp: float | None = None
+    rvol: float | None = None
+    robv: float | None = None
+    obv: float | None = None
+    obv_sma_20: float | None = None
     dma_bo: bool = False
     car_bo: bool = False
     mac_bo: bool = False

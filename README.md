@@ -81,10 +81,10 @@ uv run python -m market_screeners --test
 uv run python -m market_screeners --my
 ```
 
-Direct execution remains available:
+Direct execution of the compatibility wrapper is also available:
 
 ```bash
-uv run src/market_screeners/screeners/dma_car_mac.py --test
+uv run src/market_screeners/screeners/multi_indicator.py --test
 ```
 
 ## Architecture
@@ -100,49 +100,80 @@ market universe -> Ticker -> compute service -> Calc -> display service -> Displ
 
 `Ticker` is immutable metadata loaded from the stock and ETF universe files.
 `Calc` contains raw numeric/date results. `Display` contains final strings,
-colors, checkmarks, and compact dates.
+colors, breakout codes, and compact dates.
 
 ## Indicators
 
-The scanner calculates EMA 8, RSI(14), 30/50/100/200 DMAs, 200-DMA shift,
-52-week high/low dates and prices, days since the low, compact zone codes, and
-DMA/CAR breakout flags.
+### DCM
 
-### Breakouts
+The `DCM` column combines breakout flags: `D` = DMA BO, `C` = CAR BO, and
+`M` = MAC BO. For example, `DCM` means the ticker qualifies for all three.
+The Breakouts table contains rows with at least one code; Others contains rows
+with no code.
 
-DMA BO is independent of Zone and requires `CMP > 50 DMA > 100 DMA > 200 DMA`
-with `0% < Shift% < 10%`. DMA breakouts are sorted by Shift% ascending.
+### DMA BO
 
-CAR BO is also independent of Zone and requires CMP above the 50, 100, and
-200 DMAs, `0% < Shift% < 10%`, and `CAR >= 5`. CAR breakouts are sorted by CAR
-descending and then Shift% ascending. A ticker can appear in both breakout
-tables. MAC BO is an independent moving-average compression setup: CMP and the
-50, 100, and 200 DMAs must all be within 3% of the lowest of those four values.
-MAC breakouts are sorted by Shift% in the 200 DMA ascending. A ticker can
-appear in any combination of the three breakout tables. The remaining tickers
-appear in the Others table.
+Flag `D` when `CMP > 50 DMA > 100 DMA > 200 DMA` and `0% < Shift% < 10%`.
+Zone does not affect this flag.
 
-### Zones
+### CAR BO
 
-Zones are display-only and never affect breakout flags:
+Flag `C` when CMP is above the 50, 100, and 200 DMAs, `0% < Shift% < 10%`, and
+`CAR >= 5`. Zone does not affect this flag.
 
-- `B++`: bullish ordering with all 50/100/200 DMAs rising
-- `B+`: CMP above all three DMAs with the 50 DMA crossing upward over the 100 or 200 DMA
-- `B--`: bearish ordering with all 50/100/200 DMAs falling
-- `B-`: CMP below all three DMAs with the 50 DMA crossing downward below the 100 or 200 DMA
-- `U`: anything else
+### MAC BO
 
-### Colors
+Flag `M` when CMP and the 50, 100, and 200 DMAs are all within 3% of the lowest
+of those four values. Zone does not affect this flag.
 
-RSI uses purple through 25, green through 40, yellow through 65, and red
-above 65. EMA and DMA values are green when CMP is above them. Shift% uses
-purple above 10, green from 0.01 to 10, yellow from -10 through 0, and red
-below -10. CAR uses red below 2, yellow from 2 through 4, green from 5
-through 9, and purple from 10 upward. `52WL - 52WH` is green when positive.
+### RVOL
 
-CAR is the custom calculation: it takes the expanding mean of closing prices
-from the 52-week-high date and scores the longest increasing tail from 10 down
-to 1.
+`Current Volume / 20-period SMA of Volume`. Green when `>= 1.5`, yellow when
+`>= 0.9 and < 1.5`, normal otherwise.
+
+### ROBV
+
+`Current OBV / 20-period SMA of OBV`. Green when current OBV is positive and
+above its 20-period SMA. Red when current OBV is negative and below its
+20-period SMA. Normal otherwise. Because OBV is signed, a positive ROBV can
+still be bearish. For example, `OBV = -278 / SMA = -100 = +2.78`; current OBV
+is still below its SMA, so the value is bearish/red.
+
+### CAR
+
+The longest increasing tail, from 10 down to 1, of the expanding mean of
+closing prices starting at the 52-week-high date. Red below 2, yellow from 2
+through 4, green from 5 through 9, purple from 10 upward.
+
+### Zone
+
+Display-only classification:
+
+- `B++`: CMP > 50 DMA > 100 DMA > 200 DMA and all three DMAs are rising -- purple
+- `B+`: CMP is above all three DMAs and the 50 DMA crossed above the 100 or 200 DMA -- green
+- `B--`: CMP < 50 DMA < 100 DMA < 200 DMA and all three DMAs are falling -- red
+- `B-`: CMP is below all three DMAs and the 50 DMA crossed below the 100 or 200 DMA -- yellow
+- `U`: all other cases -- normal
+
+### RSI
+
+14-period RSI. Purple when `<= 25`, green when `> 25 and <= 40`, yellow when
+`> 40 and <= 65`, red when `> 65`.
+
+### EMA 8 and DMAs
+
+EMA 8 and the 30, 50, 100, and 200 DMAs. Each value is green when CMP is above
+it, normal otherwise.
+
+### Shift%
+
+`(CMP - 200 DMA) / 200 DMA * 100`. Purple when `> 10`, green when `>= 0.01 and
+<= 10`, yellow when `>= -10 and < 0.01`, red when `< -10`.
+
+### 52WL - 52WH
+
+Days since the 52-week low, signed negative when the low occurred before the
+52-week high. Purple when `> 90`, green when `>= 30 and <= 90`, normal otherwise.
 
 ## Test
 
