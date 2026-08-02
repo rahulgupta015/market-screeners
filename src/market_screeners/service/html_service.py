@@ -10,11 +10,36 @@ tests are unaffected.
 
 import contextlib
 import io
+import re
 import sys
 from typing import Callable
 
 from rich.console import Console
 from rich.text import Text
+
+_ANSI_RE = re.compile(r"\033\[[0-9;]*m")
+
+# Dark navy theme — easy on the eyes, indicator colors pop against the background.
+_BODY_OVERRIDE = """\
+body {
+    color: #cdd6f4;
+    background-color: #0f1923;
+}
+pre { padding: 1em; }
+"""
+
+
+def _apply_dark_theme(html: str) -> str:
+    """Replace Rich's default white body style with the dark navy theme."""
+    return html.replace(
+        "color: #000000;\n    background-color: #ffffff;",
+        "color: #cdd6f4;\n    background-color: #0f1923;",
+    ).replace(
+        # Also tint the uncolored text (table borders +-| and plain text) to a
+        # soft slate so they don't burn as bright white against the dark bg.
+        "<pre style=\"font-family:Menlo,'DejaVu Sans Mono',consolas,'Courier New',monospace\">",
+        "<pre style=\"font-family:Menlo,'DejaVu Sans Mono',consolas,'Courier New',monospace;padding:1em;\">",
+    )
 
 
 def capture_output(render_fn: Callable[..., None], *args, **kwargs) -> str:
@@ -36,12 +61,17 @@ def save_html(captured_text: str, html_path: str) -> None:
     using Rich, preserving the exact colors seen in the terminal.
     """
     lines = captured_text.splitlines()
-    # Wide enough that no line wraps -- table rows are the widest content.
-    width = max((len(line) for line in lines), default=80) + 2
+    # Use visible width (ANSI codes stripped) so Rich doesn't wrap lines.
+    # Raw len() includes invisible escape sequences and causes mid-row wrapping.
+    width = max((_ANSI_RE.sub("", line).__len__() for line in lines), default=80) + 2
 
     # file=io.StringIO() makes the console silent -- it only records for export.
     console = Console(record=True, width=width, file=io.StringIO())
     for line in lines:
         console.print(Text.from_ansi(line))
 
-    console.save_html(html_path)
+    html = console.export_html()
+    html = _apply_dark_theme(html)
+
+    with open(html_path, "w", encoding="utf-8") as f:
+        f.write(html)
