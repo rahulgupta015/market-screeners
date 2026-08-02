@@ -8,7 +8,7 @@ RESET = "\033[0m"
 RED = "\033[38;5;196m"
 GREEN = "\033[92m"
 YELLOW = "\033[38;5;229m"
-PURPLE = "\033[38;5;183m"
+PURPLE = "\033[35m"
 ANSI_RE = re.compile(r"\033\[[0-9;]*m")
 
 ZONE_COLOR = {
