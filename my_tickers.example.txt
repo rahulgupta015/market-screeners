@@ -1,0 +1,8 @@
+# Personal watch list for --my mode.
+# Copy this file to my_tickers.txt and replace with your own symbols.
+# my_tickers.txt is gitignored and will not be committed.
+# One symbol per line. Lines starting with # are ignored.
+AAPL
+MSFT
+NVDA
+SPY

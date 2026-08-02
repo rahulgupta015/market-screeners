@@ -52,6 +52,12 @@ Thumbs.db
 *.xlsx
 data/*.svg
 data/*.html
+!data/preview_dark.html
+
+# ---------------------------------------------------------
+# Personal watch list (use my_tickers.example.txt as a template)
+# ---------------------------------------------------------
+my_tickers.txt
 
 # ---------------------------------------------------------
 # others

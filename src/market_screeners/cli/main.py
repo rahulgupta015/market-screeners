@@ -12,9 +12,8 @@ from market_screeners.service.html_service import (
     save_html,
 )
 
-MY_TICKERS = ["NFXL", "ORCX", "IBIT", "BULL", "BSX", "METU", "MSFU", "AVL", "AAPU"]
-
 DATA_DIR = Path("data")
+MY_TICKERS_FILE = Path("my_tickers.txt")
 
 
 def _flag_value(flag: str) -> str | None:
@@ -24,6 +23,22 @@ def _flag_value(flag: str) -> str | None:
         if idx + 1 < len(sys.argv):
             return sys.argv[idx + 1]
     return None
+
+
+def _load_my_tickers() -> list[str]:
+    """Load personal watch list from my_tickers.txt (gitignored).
+
+    Each non-empty, non-comment line is treated as a ticker symbol.
+    Raises SystemExit with a helpful message if the file is missing.
+    """
+    if not MY_TICKERS_FILE.exists():
+        print(
+            f"Error: {MY_TICKERS_FILE} not found.\n"
+            "Copy my_tickers.example.txt to my_tickers.txt and add your symbols."
+        )
+        sys.exit(1)
+    lines = MY_TICKERS_FILE.read_text(encoding="utf-8").splitlines()
+    return [line.strip() for line in lines if line.strip() and not line.startswith("#")]
 
 
 def _auto_html_path(mode: str) -> str:
@@ -48,9 +63,10 @@ def main() -> None:
         mode = "test"
         print(f"(Running in TEST mode with {len(tickers)} tickers)\n")
     elif use_my:
+        symbols = _load_my_tickers()
         tickers = [
             universe.get(symbol, Ticker(symbol=symbol, asset_type="unknown"))
-            for symbol in MY_TICKERS
+            for symbol in symbols
         ]
         mode = "my"
         print(f"(Running in MY mode with {len(tickers)} tickers)\n")

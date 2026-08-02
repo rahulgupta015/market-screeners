@@ -66,7 +66,7 @@ uv run python -m market_screeners
 # First 10 symbols (quick test)
 uv run python -m market_screeners --test
 
-# Personal watch list
+# Personal watch list (reads from my_tickers.txt — see my_tickers.example.txt)
 uv run python -m market_screeners --my
 
 # Export to a specific HTML path
@@ -76,6 +76,10 @@ uv run python -m market_screeners --export-html path/to/output.html
 Each run automatically saves a timestamped HTML snapshot to `data/` (e.g.
 `data/screener_full_20260802_143022.html`). Pass `--export-html` to override
 the output path.
+
+To use `--my` mode, copy `my_tickers.example.txt` to `my_tickers.txt` and add
+your own symbols (one per line). The file is gitignored so your watch list stays
+private.
 
 ## GitHub Actions
 
