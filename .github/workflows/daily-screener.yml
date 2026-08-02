@@ -1,0 +1,32 @@
+name: daily-screener
+
+on:
+  schedule:
+    # 9:00 PM EST (UTC-5) = 02:00 UTC next day; runs Mon–Fri UTC (covers Sun–Thu EST)
+    - cron: "0 2 * * 1-5"
+  workflow_dispatch: {}
+
+jobs:
+  screen:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+
+      - name: Sync dependencies
+        run: uv sync
+
+      - name: Run screener and export HTML report
+        run: |
+          uv run python -m market_screeners \
+            --export-html data/out.html
+
+      - name: Commit snapshot to repository
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/out.html
+          git diff --cached --quiet || git commit -m "chore: update screener snapshot [skip ci]"
+          git push
