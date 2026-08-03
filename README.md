@@ -84,7 +84,9 @@ private.
 ## GitHub Actions
 
 A workflow runs the full screener daily (Mon–Fri at 9 PM EST) and commits the
-HTML snapshot to `data/out.html` in the repository. You can also trigger it
+HTML report to `data/` in the repository, named by day of week (e.g.
+`data/screener_FRI.html`). At most 7 files accumulate — one per day — each
+overwritten in place on its next occurrence. You can also trigger the workflow
 manually from the Actions tab.
 
 ## Architecture
@@ -96,7 +98,7 @@ market universe → Ticker → compute service → Calc → display service → 
 - `model/` — dataclasses and market-universe data
 - `service/compute_service.py` — fetches Yahoo Finance data, calculates indicators and CAR
 - `service/display_service.py` — formats, colorizes, sorts, and prints results
-- `service/snapshot_service.py` — captures ANSI output and exports it as self-contained HTML
+- `service/html_service.py` — captures ANSI output and exports it as self-contained HTML
 - `cli/main.py` — parses CLI flags and orchestrates the services
 
 `Ticker` is immutable metadata. `Calc` holds raw numeric/date results. `Display`
