@@ -53,6 +53,13 @@ Thumbs.db
 data/*.svg
 data/*.html
 !data/preview_dark.html
+!data/screener_MON.html
+!data/screener_TUE.html
+!data/screener_WED.html
+!data/screener_THU.html
+!data/screener_FRI.html
+!data/screener_SAT.html
+!data/screener_SUN.html
 
 # ---------------------------------------------------------
 # Personal watch list (use my_tickers.example.txt as a template)
