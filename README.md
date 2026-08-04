@@ -57,17 +57,23 @@ here is investment advice — always do your own research and consult a qualifie
 
    Tests use synthetic data and mocked Yahoo Finance responses — no network requests.
 
+## Tests
+
+```bash
+uv run python -m unittest discover -s tests -v
+```
+
 ## Run
 
 ```bash
-# Full stock and ETF universe
-uv run python -m market_screeners
+# Personal watch list (reads from my_tickers.txt — see my_tickers.example.txt)
+uv run python -m market_screeners --my
 
 # First 10 symbols (quick test)
 uv run python -m market_screeners --test
 
-# Personal watch list (reads from my_tickers.txt — see my_tickers.example.txt)
-uv run python -m market_screeners --my
+# Full stock and ETF universe
+uv run python -m market_screeners
 
 # Export to a specific HTML path
 uv run python -m market_screeners --export-html path/to/output.html
@@ -169,9 +175,3 @@ Days since the 52-week low, negative when the low preceded the high. Purple > 90
 
 **Note:** The 52-week high date, low date, high price, and low price are computed for internal 
 analysis but hidden from the console display to save space. They are preserved in the HTML report.
-
-## Tests
-
-```bash
-uv run python -m unittest discover -s tests -v
-```
