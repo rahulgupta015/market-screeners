@@ -88,6 +88,24 @@ def _relative_value(value, average):
     return value / average
 
 
+def compute_kst_signal(close_prices) -> int | None:
+    """Return +1 (bullish, KST above signal line) or -1 (bearish, below), or None if unavailable."""
+    # roc4=30 + sma4=15 + signal=9 needs ~54 bars minimum to be meaningful
+    if close_prices is None or len(close_prices) < 54:
+        return None
+    kst_df = ta.kst(close_prices)
+    if kst_df is None or kst_df.empty:
+        return None
+    # Column names carry the parameter suffix, so select by position.
+    kst_line = kst_df.iloc[:, 0]
+    kst_signal_line = kst_df.iloc[:, 1]
+    kst_last = _last_indicator(kst_line)
+    signal_last = _last_indicator(kst_signal_line)
+    if kst_last is None or signal_last is None:
+        return None
+    return 1 if kst_last > signal_last else -1
+
+
 def is_dma_breakout(calc: Calc) -> bool:
     """Return whether a calculation meets the independent DMA BO rule."""
     return (
@@ -155,6 +173,7 @@ def compute_ticker(ticker: Ticker) -> Calc:
             )
         calc.ema_8 = _last_indicator(ta.ema(close_prices, length=8))
         calc.rsi = _last_indicator(ta.rsi(close_prices, length=14))
+        calc.kst = compute_kst_signal(close_prices)
 
         calc.dma_30 = _last_indicator(ta.sma(close_prices, length=30)) if len(close_prices) >= 30 else None
         dma_50, previous_dma_50 = _last_two_indicator(ta.sma(close_prices, length=50)) if len(close_prices) >= 50 else (None, None)

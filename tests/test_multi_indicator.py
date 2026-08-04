@@ -12,6 +12,7 @@ from market_screeners.model.market_universe import load_market_universe
 from market_screeners.model.ticker import Ticker
 from market_screeners.service.compute_service import (
     compute_car,
+    compute_kst_signal,
     get_zone,
     is_car_breakout,
     is_dma_breakout,
@@ -215,6 +216,33 @@ class MultiIndicatorTests(unittest.TestCase):
 
         self.assertIn(RED, row["ROBV"])
         self.assertIn("-1.25", row["ROBV"])
+
+    def test_kst_signal_bullish_when_kst_above_signal(self):
+        # Quadratic price acceleration produces bullish KST momentum
+        dates = pd.date_range("2024-01-01", periods=120, freq="D")
+        prices = pd.Series([100 + i ** 2 * 0.01 for i in range(120)], index=dates)
+
+        result = compute_kst_signal(prices)
+
+        self.assertEqual(result, 1)
+
+    def test_kst_signal_returns_none_when_insufficient_data(self):
+        dates = pd.date_range("2025-01-01", periods=10, freq="D")
+        prices = pd.Series([100.0] * 10, index=dates)
+
+        self.assertIsNone(compute_kst_signal(prices))
+
+    def test_kst_display_bullish_is_green_arrow(self):
+        row = format_row(Calc(ticker=Ticker("TEST"), kst=1))
+
+        self.assertIn(GREEN, row["KST"])
+        self.assertIn("▲", row["KST"])
+
+    def test_kst_display_bearish_is_red_arrow(self):
+        row = format_row(Calc(ticker=Ticker("TEST"), kst=-1))
+
+        self.assertIn(RED, row["KST"])
+        self.assertIn("▼", row["KST"])
 
 
 if __name__ == "__main__":

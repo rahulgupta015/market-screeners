@@ -42,17 +42,18 @@ def _apply_dark_theme(html: str) -> str:
     )
 
 
-def capture_output(render_fn: Callable[..., None], *args, **kwargs) -> str:
-    """Call `render_fn` once, capturing everything it prints into a buffer,
-    then immediately echo that buffer to the real terminal. One call, one
-    source of truth between what the terminal sees and what gets saved to HTML.
+def capture_output(render_fn: Callable[..., None], *args, echo: bool = True, **kwargs) -> str:
+    """Call `render_fn` once, capturing everything it prints into a buffer.
+    If `echo` is True, the captured output is also written to the terminal.
+    Set echo=False for full-universe runs where the table is too wide for most terminals.
     """
     buffer = io.StringIO()
     with contextlib.redirect_stdout(buffer):
         render_fn(*args, **kwargs)
     captured = buffer.getvalue()
-    sys.stdout.write(captured)
-    sys.stdout.flush()
+    if echo:
+        sys.stdout.write(captured)
+        sys.stdout.flush()
     return captured
 
 

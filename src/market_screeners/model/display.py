@@ -12,6 +12,7 @@ class Display:
     rvol: str = "-"
     robv: str = "-"
     rsi: str = "-"
+    kst: str = "-"
     ema_8: str = "-"
     dma_30: str = "-"
     dma_50: str = "-"
@@ -34,6 +35,7 @@ class Display:
         "RVOL": "rvol",
         "ROBV": "robv",
         "RSI": "rsi",
+        "KST": "kst",
         "EMA 8": "ema_8",
         "30 DMA": "dma_30",
         "50 DMA": "dma_50",

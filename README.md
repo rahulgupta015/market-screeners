@@ -151,6 +151,10 @@ Longest increasing tail (10→1) of the expanding mean of closing prices from th
 
 14-period RSI. Purple ≤ 25, green 26–40, yellow 41–65, red > 65.
 
+### KST
+
+Know Sure Thing momentum oscillator. Shows `▲` (green) when the KST line is above its signal line (bullish momentum) and `▼` (red) when below (bearish). `-` when fewer than 54 bars of data are available.
+
 ### EMA 8 and DMAs
 
 EMA 8 and the 30, 50, 100, 200 DMAs. Each is green when CMP is above it.

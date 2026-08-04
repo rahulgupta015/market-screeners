@@ -20,6 +20,7 @@ class Calc:
     mac_bo: bool = False
     ema_8: float | None = None
     rsi: float | None = None
+    kst: int | None = None  # +1 bullish, -1 bearish, None unavailable
     dma_30: float | None = None
     dma_50: float | None = None
     dma_100: float | None = None

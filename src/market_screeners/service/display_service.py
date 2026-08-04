@@ -119,6 +119,8 @@ def format_row(calc: Calc) -> Display:
         )
     if calc.rsi is not None:
         row.rsi = colorize(f"{calc.rsi:.2f}", rsi_color(calc.rsi))
+    if calc.kst is not None:
+        row["KST"] = colorize("▲" if calc.kst == 1 else "▼", GREEN if calc.kst == 1 else RED)
     if calc.ema_8 is not None:
         ema = f"{calc.ema_8:.2f}"
         row.ema_8 = colorize(ema, GREEN) if calc.cmp is not None and calc.cmp > calc.ema_8 else ema
@@ -157,7 +159,7 @@ def format_row(calc: Calc) -> Display:
 
 
 DISPLAY_COLS = [
-    "Stock", "Market Cap ($B)", "CMP", "DCM", "RVOL", "ROBV", "RSI", "EMA 8",
+    "Stock", "Market Cap ($B)", "CMP", "DCM", "RVOL", "ROBV", "RSI", "KST", "EMA 8",
     "30 DMA", "50 DMA", "100 DMA", "200 DMA", "Shift %", "CAR", "Zone",
     "52W High", "52W Low", "Days Since 52W Low", "52W High Price", "52W Low Price",
 ]
@@ -168,6 +170,7 @@ SPLIT_HEADERS = {
     "RVOL": ("RVOL", ""),
     "ROBV": ("ROBV", ""),
     "RSI": ("RSI", ""),
+    "KST": ("KST", ""),
     "EMA 8": ("8", "EMA"),
     "30 DMA": ("30", "DMA"),
     "50 DMA": ("50", "DMA"),
