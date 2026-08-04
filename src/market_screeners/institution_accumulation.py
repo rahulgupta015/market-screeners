@@ -17,11 +17,12 @@ Uses pandas-ta-classic for all indicator calculations:
 
 Custom logic implements four scored criteria + three context flags:
 
-  SCORE (out of 4) — fires when institutional accumulation is detected:
-    1. OBV/AD Divergence     : price flat/down but volume flow rising (Wyckoff)
-    2. Acc vs Dist Days      : more up-volume days than down-volume days (O'Neil)
-    3. VSA Event             : Stopping Volume or Spring detected (Wyckoff/Williams)
-    4. RVOL Absorption       : high volume + tight range = supply absorbed (Raschke)
+  SCORE (out of 5) — fires when institutional accumulation is detected:
+    1. ANT MVP               : momentum + volume + price all firing (IBD/Ryan)
+    2. OBV/AD Divergence     : price flat/down but volume flow rising (Wyckoff)
+    3. Acc vs Dist Days      : more up-volume days than down-volume days (O'Neil)
+    4. VSA Event             : Stopping Volume or Spring detected (Wyckoff/Williams)
+    5. RVOL Absorption       : high volume + tight range = supply absorbed (Raschke)
 
   CONTEXT (out of 3) — supporting clues, do NOT affect the score:
     1. Volume Dry-Up         : volume drying up before a breakout (Minervini/O'Neil)
@@ -65,7 +66,44 @@ WEEKLY_MA_WINDOW = 10        # weekly SMA window for the WeeklyTrend context fla
 
 
 # ============================================================
-# STRATEGY 1 — OBV / A-D Divergence
+# STRATEGY 1 — ANT MVP (Momentum–Volume–Price)
+# Author  : David Ryan, IBD / MarketSurge, TradingView community
+#           (JohnMuchow, LevelUpTools, Noam73)
+# Style   : ANTs (Accumulation Near Top) institutional footprint signal
+# Purpose : Identify stocks showing strong institutional accumulation over
+#           a 15-day window. A stock qualifies as ANT MVP only when all
+#           three conditions fire together on the same day:
+#             1. Momentum  — up 12 of the last 15 days (persistent buying)
+#             2. Volume    — today's volume > 1.20× the 50-day average
+#                           (institutions stepping in with size)
+#             3. Price     — close is up 20% over the last 15 days
+#                           (strong price appreciation confirming demand)
+# References:
+#   https://www.tradingview.com/script/ANTs/
+#   https://www.tradingview.com/script/Ants-MVP/
+#   https://www.tradingview.com/script/Ants-Pro/
+# ============================================================
+def add_ant_mvp_flag(df):
+    """Compute ANT MVP criteria and append result columns."""
+    # --- 1. Momentum: at least 12 up-close days out of the last 15 ---
+    up_days = (df["close"] > df["close"].shift(1)).rolling(15).sum()
+    df["ANT_Momentum"] = up_days >= 12
+
+    # --- 2. Volume: today's volume above 120% of the 50-day average ---
+    vol_sma50 = df["volume"].rolling(50).mean()
+    df["ANT_Volume"] = df["volume"] > (vol_sma50 * 1.20)
+
+    # --- 3. Price: close is up more than 20% from 15 days ago ---
+    price_change_15 = (df["close"] - df["close"].shift(15)) / df["close"].shift(15)
+    df["ANT_Price"] = price_change_15 > 0.20
+
+    # --- Final MVP flag: all three must fire on the same day ---
+    df["ANT_MVP"] = df["ANT_Momentum"] & df["ANT_Volume"] & df["ANT_Price"]
+    return df
+
+
+# ============================================================
+# STRATEGY 2 — OBV / A-D Divergence
 # Author  : Richard D. Wyckoff
 # Style   : Wyckoff Composite Operator Accumulation
 # Purpose : Detect stealth accumulation — price is flat or falling, but the
@@ -93,7 +131,7 @@ def add_divergence_flag(df):
 
 
 # ============================================================
-# STRATEGY 2 — Accumulation vs Distribution Days (25-day rolling)
+# STRATEGY 3 — Accumulation vs Distribution Days (25-day rolling)
 # Author  : William J. O'Neil
 # Style   : CANSLIM Institutional Accumulation/Distribution
 # Purpose : Count days where institutions are net buyers (acc days) vs net
@@ -119,7 +157,7 @@ def add_acc_dist_flag(df):
 
 
 # ============================================================
-# STRATEGY 3 — VSA: Stopping Volume + Spring
+# STRATEGY 4 — VSA: Stopping Volume + Spring
 # Author  : Richard D. Wyckoff, Tom Williams
 # Style   : Wyckoff Phase C/D, Volume Spread Analysis
 # Purpose : Two classic Wyckoff absorption patterns:
@@ -267,19 +305,21 @@ def analyze_ticker(symbol):
     df = compute_obv_ad(df)
 
     # Score criteria (each contributes 1 point to the score)
-    df = add_divergence_flag(df)
-    df = add_acc_dist_flag(df)
-    df = add_vsa_flag(df)
-    df = add_rvol_flag(df)
+    df = add_ant_mvp_flag(df)       # Strategy 0 — ANT MVP
+    df = add_divergence_flag(df)    # Strategy 1 — OBV/AD Divergence
+    df = add_acc_dist_flag(df)      # Strategy 2 — Acc vs Dist Days
+    df = add_vsa_flag(df)           # Strategy 3 — VSA Events
+    df = add_rvol_flag(df)          # Strategy 4 — RVOL Absorption
 
     # Context flags (informational only — do not affect the score)
     df = add_vol_dryup_flag(df)
     df = add_trend_flag(df)
     df = add_weekly_trend_flag(df, symbol)
 
-    # Composite score: sum of the 4 binary criteria flags
+    # Composite score: sum of the 5 binary criteria flags
     df["score"] = (
-            df["div_flag"].astype(int)
+            df["ANT_MVP"].astype(int)
+            + df["div_flag"].astype(int)
             + df["acc_dist_flag"].astype(int)
             + df["vsa_flag"].astype(int)
             + df["rvol_flag"].astype(int)
@@ -326,14 +366,14 @@ def main():
     result = result.sort_values(["symbol", "Date"], ascending=[True, False])
 
     header = (
-        f"{'Symbol':<8} {'Date':<12} {'Score':<12} {'Context':<11} {'OBV/AD Div':<12} "
+        f"{'Symbol':<8} {'Date':<12} {'Score':<12} {'Context':<11} {'ANT MVP':<9} {'OBV/AD Div':<12} "
         f"{'AccVsDist(25d)':<16} {'VSA Event':<14} {'RVOL Absorb':<13} "
         f"{'VolDryUp':<10} {'Trend(50d)':<12} {'WeeklyTrend'}"
     )
     sep = "=" * len(header)
     print()
     print(sep)
-    print(f"INSTITUTIONAL ACCUMULATION SIGNALS  (min score >= {MIN_SCORE}/4 criteria | context shown as x/3)")
+    print(f"INSTITUTIONAL ACCUMULATION SIGNALS  (min score >= {MIN_SCORE}/5 criteria | context shown as x/3)")
     print(sep)
     print(header)
     print("-" * len(header))
@@ -342,8 +382,9 @@ def main():
         acc_dist_str = f"{int(row['acc_count'])} vs {int(row['dist_count'])}"
         print(
             f"{row['symbol']:<8} {row['Date'].strftime('%Y-%m-%d'):<12} "
-            f"{str(int(row['score'])) + '/4':<12} "
+            f"{str(int(row['score'])) + '/5':<12} "
             f"{str(int(row['context_score'])) + '/3':<11} "
+            f"{'Yes' if row['ANT_MVP'] else 'No':<9} "
             f"{'Yes' if row['div_flag'] else 'No':<12} "
             f"{acc_dist_str:<16} "
             f"{row['vsa_event']:<14} "
@@ -359,3 +400,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
