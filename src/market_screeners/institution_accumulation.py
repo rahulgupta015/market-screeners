@@ -39,7 +39,11 @@ import pandas_ta_classic as ta
 # ---------------------------------------------------------------------------
 # CONFIG — tweak these freely
 # ---------------------------------------------------------------------------
-TICKERS = ["MSTR", "INFY", "HDB", "IBIT", "NFXL", "ORCL", "BULL", "METU", "AAPL", "NVDA", "AVGO", "LOW", "ADP"]
+TICKERS = [
+    "AAPU", "AVL", "BULL", "BSX", "HDB",
+    "IBIT", "LOW", "METU", "MSFU", "MSTU",
+    "NVDA", "NFXL", "ORCX", "SOFI", "WMT",
+]
 
 FETCH_DAYS = "150d"          # daily history (extra bars needed to warm up rolling windows)
 WEEKLY_FETCH_PERIOD = "1y"   # weekly history for the weekly-trend context flag
