@@ -2,7 +2,7 @@ name: daily-screener
 
 on:
   schedule:
-    - cron: "30 22 * * 0-4"   # Runs at 5:30 PM EST (22:30 UTC), Sun–Thu
+    - cron: "0 6 * * 1-5"   # 1:00 AM EST (06:00 UTC); runs Mon–Fri
   workflow_dispatch: {}
 
 jobs:
