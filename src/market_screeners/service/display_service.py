@@ -144,12 +144,6 @@ def format_row(calc: Calc) -> Display:
         row.car = colorize(str(calc.car), car_color(calc.car))
     if calc.high_date is not None:
         row.high_date = calc.high_date.strftime("%m-%d-%y")
-    if calc.low_date is not None:
-        row.low_date = calc.low_date.strftime("%m-%d-%y")
-    if calc.high_price is not None:
-        row.high_price = f"{calc.high_price:.2f}"
-    if calc.low_price is not None:
-        row.low_price = f"{calc.low_price:.2f}"
     if calc.days_since_low is not None:
         days = f"{calc.days_since_low:+d}"
         days_color = days_since_low_color(calc.days_since_low)
@@ -161,7 +155,7 @@ def format_row(calc: Calc) -> Display:
 DISPLAY_COLS = [
     "Stock", "Market Cap ($B)", "CMP", "DCM", "RVOL", "ROBV", "RSI", "KST", "EMA 8",
     "30 DMA", "50 DMA", "100 DMA", "200 DMA", "Shift %", "CAR", "Zone",
-    "52W High", "52W Low", "Days Since 52W Low", "52W High Price", "52W Low Price",
+    "Days Since 52W Low",
 ]
 
 SPLIT_HEADERS = {
@@ -177,11 +171,7 @@ SPLIT_HEADERS = {
     "100 DMA": ("100", "DMA"),
     "200 DMA": ("200", "DMA"),
     "Shift %": ("Shift%", "200 DMA"),
-    "52W High": ("52WH", "Date"),
-    "52W Low": ("52WL", "Date"),
     "Days Since 52W Low": ("52WL -", "52WH"),
-    "52W High Price": ("52WH", "Price"),
-    "52W Low Price": ("52WL", "Price"),
 }
 
 

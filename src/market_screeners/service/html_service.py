@@ -48,13 +48,37 @@ def capture_output(render_fn: Callable[..., None], *args, echo: bool = True, **k
     Set echo=False for full-universe runs where the table is too wide for most terminals.
     """
     buffer = io.StringIO()
-    with contextlib.redirect_stdout(buffer):
-        render_fn(*args, **kwargs)
-    captured = buffer.getvalue()
     if echo:
-        sys.stdout.write(captured)
-        sys.stdout.flush()
-    return captured
+        # For echo mode, print directly to stdout while also capturing for HTML
+        import sys
+        original_stdout = sys.stdout
+        tee_buffer = io.StringIO()
+        
+        class TeeOutput:
+            def __init__(self, stdout, buffer):
+                self.stdout = stdout
+                self.buffer = buffer
+            
+            def write(self, s):
+                self.buffer.write(s)
+                try:
+                    self.stdout.write(s)
+                except UnicodeEncodeError:
+                    # Replace problematic Unicode with ASCII alternatives
+                    self.stdout.write(s.replace('▲', '^').replace('▼', 'v'))
+                return len(s)
+            
+            def flush(self):
+                self.buffer.flush()
+                self.stdout.flush()
+        
+        with contextlib.redirect_stdout(TeeOutput(original_stdout, tee_buffer)):
+            render_fn(*args, **kwargs)
+        return tee_buffer.getvalue()
+    else:
+        with contextlib.redirect_stdout(buffer):
+            render_fn(*args, **kwargs)
+        return buffer.getvalue()
 
 
 def save_html(captured_text: str, html_path: str) -> None:

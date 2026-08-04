@@ -135,8 +135,9 @@ class MultiIndicatorTests(unittest.TestCase):
         self.assertIsInstance(row, Display)
         self.assertEqual(row["Stock"], "TEST")
         self.assertEqual(row["CMP"], "42.5")
-        self.assertEqual(row["52W High"], "07-15-26")
-        self.assertEqual(row["52W Low"], "04-02-26")
+        # Verify 52W fields are computed in Calc but not in Display
+        self.assertEqual(calc.high_date, pd.Timestamp(date(2026, 7, 15)))
+        self.assertEqual(calc.low_date, pd.Timestamp(date(2026, 4, 2)))
 
     def test_breakout_tables_allow_overlap(self):
         dma_only = Calc(ticker=Ticker("DMA"), dma_bo=True, shift_pct=2)

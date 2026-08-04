@@ -44,11 +44,7 @@ class Display:
         "Shift %": "shift_pct",
         "CAR": "car",
         "Zone": "zone",
-        "52W High": "high_date",
-        "52W Low": "low_date",
         "Days Since 52W Low": "days_since_low",
-        "52W High Price": "high_price",
-        "52W Low Price": "low_price",
     }
 
     def __getitem__(self, key):

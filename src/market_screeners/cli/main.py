@@ -82,11 +82,8 @@ def main() -> None:
     start_time = time.perf_counter()
     calculations = scan_all(tickers)
 
-    captured = capture_output(display_tickers, calculations, echo=mode != "full")
+    captured = capture_output(display_tickers, calculations, echo=True)
     save_html(captured, html_path)
-    if mode == "full":
-        print(f"Report saved → {html_path}")
-    else:
-        print(f"Report saved → {html_path}")
+    print(f"Report saved -> {html_path}")
 
     print(f"Execution time: {time.perf_counter() - start_time:.2f}s")

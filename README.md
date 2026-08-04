@@ -167,6 +167,9 @@ EMA 8 and the 30, 50, 100, 200 DMAs. Each is green when CMP is above it.
 
 Days since the 52-week low, negative when the low preceded the high. Purple > 90, green 30–90.
 
+**Note:** The 52-week high date, low date, high price, and low price are computed for internal 
+analysis but hidden from the console display to save space. They are preserved in the HTML report.
+
 ## Tests
 
 ```bash
