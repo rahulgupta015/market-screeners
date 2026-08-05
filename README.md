@@ -79,7 +79,24 @@ uv run python -m market_screeners
 uv run python -m market_screeners --export-html path/to/output.html
 ```
 
-Institutional accumulation scanner (same input modes):
+Institutional accumulation scanner (same input modes). The implementation now lives in a package module; a thin wrapper at `market_screeners.institution_accumulation` is kept for backward compatibility.
+
+Preferred (package-style) invocation:
+```bash
+# Personal watch list
+uv run python -m market_screeners.screeners.institution --my
+
+# Quick test (first 10 symbols)
+uv run python -m market_screeners.screeners.institution --test
+
+# Full universe
+uv run python -m market_screeners.screeners.institution
+
+# Export HTML
+uv run python -m market_screeners.screeners.institution --export-html data/institution_custom.html
+```
+
+Wrapper (backward compatible) invocation:
 ```bash
 # Personal watch list
 uv run python -m market_screeners.institution_accumulation --my
@@ -92,11 +109,13 @@ uv run python -m market_screeners.institution_accumulation
 
 # Export HTML
 uv run python -m market_screeners.institution_accumulation --export-html data/institution_custom.html
-
-Note: The institutional scanner is a separate module and is not invoked by `uv run python -m market_screeners`. Run it directly as shown above.
-
-Data fetch / analysis note: the institutional scanner fetches a longer history (210 days) but analyzes the most recent 120 days. In general, set the fetch period about 80–100 days longer than the analysis window to properly warm up technical indicators (sma/ema/atr/obv windows and other rolling stats). This avoids edge effects and ensures moving averages and other indicators have enough prior data to be stable.
 ```
+
+Notes:
+- The institutional scanner is separate and is not invoked by `uv run python -m market_screeners` by default.
+- Fetch vs analysis: the scanner fetches ~210 days but analyzes the most recent 120 days. Generally fetch ~80–100 days more than analysis to warm up indicators (SMA/EMA/ATR/OBV windows) and avoid edge effects.
+- The 52-week high/low dates and prices are still computed for internal analysis but are intentionally hidden from console and HTML output to reduce clutter; only "Days Since 52W Low" is shown.
+
 
 Each run automatically saves a timestamped HTML snapshot to `data/` (e.g.
 `data/screener_full_20260802_143022.html`). Pass `--export-html` to override
