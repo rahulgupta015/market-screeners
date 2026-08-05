@@ -40,16 +40,14 @@ import pandas_ta_classic as ta
 # ---------------------------------------------------------------------------
 # CONFIG — tweak these freely
 # ---------------------------------------------------------------------------
-TICKERS = [
-    "AAPU", "AVL", "BULL", "BSX", "HDB",
-    "IBIT", "LOW", "METU", "MSFU", "MSTU",
-    "NVDA", "NFXL", "ORCX", "SOFI", "WMT",
-]
+# No hardcoded ticker list — consume tickers from the shared market_universe,
+# the --my watchlist, or the --test subset (first 10 symbols).
 
-FETCH_DAYS = "150d"          # daily history (extra bars needed to warm up rolling windows)
-WEEKLY_FETCH_PERIOD = "1y"   # weekly history for the weekly-trend context flag
-ANALYSIS_DAYS = 60           # only show signal days within this recent window
-MIN_SCORE = 3                # only print days where >= this many of the 4 criteria fired
+# Fetch 210 days of daily history to warm up indicators, but analyze the most recent 120 days.
+FETCH_DAYS = "210d"          # daily history (210 days for indicator warm-up)
+WEEKLY_FETCH_PERIOD = "1y"   # weekly history for the weekly-trend context flag (unchanged)
+ANALYSIS_DAYS = 120           # analyze the last 120 days
+MIN_SCORE = 3                 # only print days where >= this many of the 5 criteria fired
 
 DIVERGENCE_WINDOW = 10       # look-back window (days) for OBV/AD vs price divergence
 ACC_DIST_WINDOW = 25         # rolling window for counting acc days vs dist days
@@ -293,10 +291,8 @@ def add_weekly_trend_flag(df, symbol):
 def analyze_ticker(symbol):
     df = yf.Ticker(symbol).history(period=FETCH_DAYS, interval="1d")
     if df.empty:
-        print(f"  {symbol:<6} ... no data returned, skipping")
+        # silently skip symbols with no data
         return pd.DataFrame()
-
-    print(f"  {symbol:<6} ... {len(df)} bars loaded")
 
     # yfinance returns Title-case columns (Close, Volume…) — normalise to lowercase
     df = df.rename(columns=str.lower)

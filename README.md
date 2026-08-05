@@ -94,6 +94,8 @@ uv run python -m market_screeners.institution_accumulation
 uv run python -m market_screeners.institution_accumulation --export-html data/institution_custom.html
 
 Note: The institutional scanner is a separate module and is not invoked by `uv run python -m market_screeners`. Run it directly as shown above.
+
+Data fetch / analysis note: the institutional scanner fetches a longer history (210 days) but analyzes the most recent 120 days. In general, set the fetch period about 80–100 days longer than the analysis window to properly warm up technical indicators (sma/ema/atr/obv windows and other rolling stats). This avoids edge effects and ensures moving averages and other indicators have enough prior data to be stable.
 ```
 
 Each run automatically saves a timestamped HTML snapshot to `data/` (e.g.
