@@ -22,7 +22,7 @@ from rich.text import Text
 # ---------------------------------------------------------------------
 # CONFIG
 # ---------------------------------------------------------------------
-TICKERS = ["AAPL", "META", "NVDA", "MSFT", "IBIT", "NFLX", "ORCL", "BULL"]
+TICKERS = ["AAPL", "META", "NVDA", "MSFT", "IBIT", "NFLX", "ORCL", "BULL", "MU", "LLY"]
 
 # How many strikes above/below spot to consider "near the money"
 # when computing IV skew and the vol/OI hotspot.
@@ -61,6 +61,7 @@ class OptionChainAnalyzer:
     def run(self) -> None:
         for tk in self.tickers:
             self.snapshots.append(self._analyze_ticker(tk))
+        self.snapshots.sort(key=lambda s: s.ticker)
 
     def _analyze_ticker(self, ticker: str) -> OptionSnapshot:
         snap = OptionSnapshot(ticker=ticker)
@@ -200,6 +201,24 @@ class OptionChainAnalyzer:
             return "red"
         return "yellow"
 
+    @staticmethod
+    def classify_spot_vs_max_pain(
+            spot: Optional[float], low: Optional[float], high: Optional[float]
+    ) -> str:
+        """
+        Price tends to gravitate toward max pain by expiry, so:
+        green  = spot BELOW max pain range -> room to drift up (long bias)
+        red    = spot ABOVE max pain range -> room to drift down (short bias)
+        yellow = spot already inside the max pain range (neutral)
+        """
+        if spot is None or low is None or high is None:
+            return "yellow"
+        if spot < low:
+            return "green"
+        if spot > high:
+            return "red"
+        return "yellow"
+
     @classmethod
     def _compute_signal(cls, snap: OptionSnapshot) -> str:
         """
@@ -231,22 +250,27 @@ def print_table(snapshots: list[OptionSnapshot]) -> None:
     table.add_column("TICKER", justify="left")
     table.add_column("SPOT ($)", justify="left")
     table.add_column("STRIKE ($)\n(ATM)", justify="left")
-    table.add_column("CALL WALL ($)\n(Strike)", justify="left")
-    table.add_column("PUT WALL ($)\n(Strike)", justify="left")
+    table.add_column("CALL/PUT WALL ($)\n(Strike)", justify="left")
     table.add_column("PCR", justify="left")
     table.add_column("IV\nSKEW", justify="left")
-    table.add_column("MAX PAIN ($)\nRANGE", justify="left")
     table.add_column("VOL/OI", justify="left")
+    table.add_column("MAX PAIN ($)\nRANGE", justify="left")
+    table.add_column("TICKER", justify="left")
 
     circle = {"green": "green", "red": "red", "yellow": "yellow"}
 
     for s in snapshots:
         if s.error:
-            table.add_row(f"{s.ticker} !", "-", "-", "-", "-", "-", "-", "-", f"error: {s.error}")
+            table.add_row(f"{s.ticker} !", "-", "-", f"error: {s.error}", "-", "-", "-", "-", s.ticker)
             continue
 
         ticker_cell = Text(f"{s.ticker} ")
         ticker_cell.append("\u25CF", style=circle[s.signal])  # colored dot, single-width
+
+        spot_text = Text(f"{s.spot:.2f}" if s.spot is not None else "-")
+        spot_text.stylize(
+            circle[OptionChainAnalyzer.classify_spot_vs_max_pain(s.spot, s.max_pain_low, s.max_pain_high)]
+        )
 
         pcr_text = Text(f"{s.pcr:.2f}" if s.pcr is not None else "-")
         pcr_text.stylize(circle[OptionChainAnalyzer.classify_pcr(s.pcr)])
@@ -261,16 +285,18 @@ def print_table(snapshots: list[OptionSnapshot]) -> None:
         vol_oi_text = Text(vol_oi_label)
         vol_oi_text.stylize(circle[OptionChainAnalyzer.classify_hotspot(s.hotspot_side)])
 
+        call_put_wall = f"{s.max_call_oi_strike:g}/{s.max_put_oi_strike:g}"
+
         table.add_row(
             ticker_cell,
-            f"{s.spot:.2f}",
+            spot_text,
             f"{s.atm_strike:g}",
-            f"{s.max_call_oi_strike:g}",
-            f"{s.max_put_oi_strike:g}",
+            call_put_wall,
             pcr_text,
             iv_text,
-            f"{s.max_pain_low:g}-{s.max_pain_high:g}" if s.max_pain_low is not None else "-",
             vol_oi_text,
+            f"{s.max_pain_low:g}-{s.max_pain_high:g}" if s.max_pain_low is not None else "-",
+            s.ticker,
         )
 
     console.print(table)
