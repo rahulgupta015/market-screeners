@@ -79,6 +79,23 @@ uv run python -m market_screeners
 uv run python -m market_screeners --export-html path/to/output.html
 ```
 
+Institutional accumulation scanner (same input modes):
+```bash
+# Personal watch list
+uv run python -m market_screeners.institution_accumulation --my
+
+# Quick test (first 10 symbols)
+uv run python -m market_screeners.institution_accumulation --test
+
+# Full universe
+uv run python -m market_screeners.institution_accumulation
+
+# Export HTML
+uv run python -m market_screeners.institution_accumulation --export-html data/institution_custom.html
+
+Note: The institutional scanner is a separate module and is not invoked by `uv run python -m market_screeners`. Run it directly as shown above.
+```
+
 Each run automatically saves a timestamped HTML snapshot to `data/` (e.g.
 `data/screener_full_20260802_143022.html`). Pass `--export-html` to override
 the output path.
@@ -173,5 +190,4 @@ EMA 8 and the 30, 50, 100, 200 DMAs. Each is green when CMP is above it.
 
 Days since the 52-week low, negative when the low preceded the high. Purple > 90, green 30–90.
 
-**Note:** The 52-week high date, low date, high price, and low price are computed for internal 
-analysis but hidden from the console display to save space. They are preserved in the HTML report.
+**Note:** The 52-week high date, low date, high price, and low price are computed for internal analysis but are hidden from both the console display and the saved HTML report to reduce clutter. Only the "Days Since 52W Low" metric is shown in outputs.

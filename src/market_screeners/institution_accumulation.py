@@ -339,17 +339,83 @@ def analyze_ticker(symbol):
 # ---------------------------------------------------------------------------
 # Main — collect signals across all tickers and print a single sorted table
 # ---------------------------------------------------------------------------
+import sys
+from datetime import datetime
+from pathlib import Path
+import time
+
+from market_screeners.model.market_universe import load_market_universe
+from market_screeners.model.ticker import Ticker
+from market_screeners.service.html_service import capture_output, save_html
+
+
+DATA_DIR = Path("data")
+
+
+def _flag_value(flag: str) -> str | None:
+    if flag in sys.argv:
+        idx = sys.argv.index(flag)
+        if idx + 1 < len(sys.argv):
+            return sys.argv[idx + 1]
+    return None
+
+
+def _load_my_tickers() -> list[str]:
+    MY_TICKERS_FILE = Path("my_tickers.txt")
+    if not MY_TICKERS_FILE.exists():
+        print(
+            f"Error: {MY_TICKERS_FILE} not found.\n"
+            "Copy my_tickers.example.txt to my_tickers.txt and add your symbols."
+        )
+        sys.exit(1)
+    lines = MY_TICKERS_FILE.read_text(encoding="utf-8").splitlines()
+    return [line.strip() for line in lines if line.strip() and not line.startswith("#")]
+
+
+def _auto_html_path(mode: str) -> str:
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+    ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+    return str(DATA_DIR / f"institution_{mode}_{ts}.html")
+
+
 def main():
-    print(f"Fetching {FETCH_DAYS} daily + {WEEKLY_FETCH_PERIOD} weekly OHLCV for {len(TICKERS)} tickers...")
+    # Determine tickers source like cli/main.py
+    universe = load_market_universe()
+    use_test = "--test" in sys.argv
+    use_my = "--my" in sys.argv
+    html_path = _flag_value("--export-html")
+
+    if use_test:
+        tickers = [universe[symbol] for symbol in sorted(universe)[:10]]
+        mode = "test"
+        print(f"(Running INSTITUTION scanner in TEST mode with {len(tickers)} tickers)\n")
+    elif use_my:
+        symbols = _load_my_tickers()
+        tickers = [
+            universe.get(symbol, Ticker(symbol=symbol, asset_type="unknown"))
+            for symbol in symbols
+        ]
+        mode = "my"
+        print(f"(Running INSTITUTION scanner in MY mode with {len(tickers)} tickers)\n")
+    else:
+        tickers = list(universe.values())
+        mode = "full"
+
+    # Always export an HTML to data/ unless the caller already specified a path.
+    if html_path is None:
+        html_path = _auto_html_path(mode)
+
+    print(f"Fetching {FETCH_DAYS} daily + {WEEKLY_FETCH_PERIOD} weekly OHLCV for {len(tickers)} tickers...")
 
     all_rows = []
-    for symbol in TICKERS:
+    symbol_list = [t.symbol if isinstance(t, Ticker) else str(t) for t in tickers]
+    for symbol in symbol_list:
         df = analyze_ticker(symbol)
         if df.empty:
             continue
 
         # Trim to recent window — earlier bars were only needed for warm-up
-        recent  = df.tail(ANALYSIS_DAYS)
+        recent = df.tail(ANALYSIS_DAYS)
         signals = recent[recent["score"] >= MIN_SCORE]
         all_rows.append(signals)
 
@@ -371,31 +437,44 @@ def main():
         f"{'VolDryUp':<10} {'Trend(50d)':<12} {'WeeklyTrend'}"
     )
     sep = "=" * len(header)
-    print()
-    print(sep)
-    print(f"INSTITUTIONAL ACCUMULATION SIGNALS  (min score >= {MIN_SCORE}/5 criteria | context shown as x/3)")
-    print(sep)
-    print(header)
-    print("-" * len(header))
 
-    for _, row in result.iterrows():
-        acc_dist_str = f"{int(row['acc_count'])} vs {int(row['dist_count'])}"
-        print(
-            f"{row['symbol']:<8} {row['Date'].strftime('%Y-%m-%d'):<12} "
-            f"{str(int(row['score'])) + '/5':<12} "
-            f"{str(int(row['context_score'])) + '/3':<11} "
-            f"{'Yes' if row['ANT_MVP'] else 'No':<9} "
-            f"{'Yes' if row['div_flag'] else 'No':<12} "
-            f"{acc_dist_str:<16} "
-            f"{row['vsa_event']:<14} "
-            f"{'Yes' if row['rvol_flag'] else 'No':<13} "
-            f"{'Yes' if row['vol_dryup'] else 'No':<10} "
-            f"{'Yes' if row['trend_ok'] else 'No':<12} "
-            f"{'Yes' if row['weekly_trend_ok'] else 'No'}"
-        )
+    def _render():
+        print()
+        print(sep)
+        print(f"INSTITUTIONAL ACCUMULATION SIGNALS  (min score >= {MIN_SCORE}/5 criteria | context shown as x/3)")
+        print(sep)
+        print(header)
+        print("-" * len(header))
 
-    print("-" * len(header))
-    print(f"{len(result)} signal day(s) across {result['symbol'].nunique()}/{len(TICKERS)} tickers")
+        for _, row in result.iterrows():
+            acc_dist_str = f"{int(row['acc_count'])} vs {int(row['dist_count'])}"
+            print(
+                f"{row['symbol']:<8} {row['Date'].strftime('%Y-%m-%d'):<12} "
+                f"{str(int(row['score'])) + '/5':<12} "
+                f"{str(int(row['context_score'])) + '/3':<11} "
+                f"{'Yes' if row['ANT_MVP'] else 'No':<9} "
+                f"{'Yes' if row['div_flag'] else 'No':<12} "
+                f"{acc_dist_str:<16} "
+                f"{row['vsa_event']:<14} "
+                f"{'Yes' if row['rvol_flag'] else 'No':<13} "
+                f"{'Yes' if row['vol_dryup'] else 'No':<10} "
+                f"{'Yes' if row['trend_ok'] else 'No':<12} "
+                f"{'Yes' if row['weekly_trend_ok'] else 'No'}"
+            )
+
+        print("-" * len(header))
+        print(f"{len(result)} signal day(s) across {result['symbol'].nunique()}/{len(symbol_list)} tickers")
+
+    start_time = time.perf_counter()
+    captured = capture_output(_render, echo=True)
+    save_html(captured, html_path)
+
+    if mode == 'full':
+        print(f"Report saved -> {html_path}")
+    else:
+        print(f"Report saved -> {html_path}")
+
+    print(f"Execution time: {time.perf_counter() - start_time:.2f}s")
 
 
 if __name__ == "__main__":
