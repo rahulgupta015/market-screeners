@@ -297,44 +297,63 @@ def main():
     # Sort by symbol A-Z, then most recent date first within each symbol
     result = result.sort_values(["symbol", "Date"], ascending=[True, False])
 
-    header = (
-        f"{'Symbol':<8} {'Date':<12} {'Score':<12} {'Context':<11} {'ANT MVP':<9} {'OBV/AD Div':<12} "
-        f"{'AccVsDist(25d)':<16} {'VSA Event':<14} {'RVOL Absorb':<13} "
-        f"{'VolDryUp':<10} {'Trend(50d)':<12} {'WeeklyTrend'}"
-    )
-    sep = "=" * len(header)
+    columns = [
+        "Symbol", "Date", "Score", "Context", "ANT MVP", "OBV/AD Div",
+        "AccVsDist(25d)", "VSA Event", "RVOL Absorb", "VolDryUp", "Trend(50d)", "WeeklyTrend", "Stock"
+    ]
 
-    def _render():
+    # Build printable rows as lists of strings
+    rows = []
+    for _, row in result.iterrows():
+        acc_dist_str = f"{int(row.get('acc_count',0))} vs {int(row.get('dist_count',0))}"
+        date_val = row.get('Date')
+        date_str = date_val.strftime('%Y-%m-%d') if hasattr(date_val, 'strftime') else str(date_val)
+        r = [
+            str(row.get('symbol','')),
+            date_str,
+            str(int(row.get('score',0))) + '/5',
+            str(int(row.get('context_score',0))) + '/3',
+            'Yes' if row.get('ANT_MVP') else 'No',
+            'Yes' if row.get('div_flag') else 'No',
+            acc_dist_str,
+            str(row.get('vsa_event','')),
+            'Yes' if row.get('rvol_flag') else 'No',
+            'Yes' if row.get('vol_dryup') else 'No',
+            'Yes' if row.get('trend_ok') else 'No',
+            'Yes' if row.get('weekly_trend_ok') else 'No',
+            str(row.get('symbol',''))  # trailing Stock column for easier viewing
+        ]
+        rows.append(r)
+
+    def _render_table():
         print()
-        print(sep)
-        print(f"INSTITUTIONAL ACCUMULATION SIGNALS  (min score >= {MIN_SCORE}/5 criteria | context shown as x/3)")
+        title = f"INSTITUTIONAL ACCUMULATION SIGNALS  (min score >= {MIN_SCORE}/5 criteria | context shown as x/3)"
+        print("=" * len(title))
+        print(title)
+        print("=" * len(title))
+
+        # compute column widths
+        widths = {}
+        for i, col in enumerate(columns):
+            max_val = max((len(str(r[i])) for r in rows), default=0)
+            widths[col] = max(len(col), max_val)
+
+        sep = "+-" + "-+-".join("-" * widths[c] for c in columns) + "-+"
+        header = "| " + " | ".join(c.ljust(widths[c]) for c in columns) + " |"
+
         print(sep)
         print(header)
-        print("-" * len(header))
+        print(sep.replace('-', '-'))
 
-        for _, row in result.iterrows():
-            acc_dist_str = f"{int(row.get('acc_count',0))} vs {int(row.get('dist_count',0))}"
-            date_val = row.get('Date')
-            date_str = date_val.strftime('%Y-%m-%d') if hasattr(date_val, 'strftime') else str(date_val)
-            print(
-                f"{row.get('symbol',''):<8} {date_str:<12} "
-                f"{str(int(row.get('score',0))) + '/5':<12} "
-                f"{str(int(row.get('context_score',0))) + '/3':<11} "
-                f"{'Yes' if row.get('ANT_MVP') else 'No':<9} "
-                f"{'Yes' if row.get('div_flag') else 'No':<12} "
-                f"{acc_dist_str:<16} "
-                f"{row.get('vsa_event',''):<14} "
-                f"{'Yes' if row.get('rvol_flag') else 'No':<13} "
-                f"{'Yes' if row.get('vol_dryup') else 'No':<10} "
-                f"{'Yes' if row.get('trend_ok') else 'No':<12} "
-                f"{'Yes' if row.get('weekly_trend_ok') else 'No'}"
-            )
+        for r in rows:
+            line = "| " + " | ".join(str(v).ljust(widths[columns[i]]) for i, v in enumerate(r)) + " |"
+            print(line)
 
-        print("-" * len(header))
-        print(f"{len(result)} signal day(s) across {result['symbol'].nunique()}/{len(symbol_list)} tickers")
+        print(sep)
+        print(f"{len(rows)} signal day(s) across {result['symbol'].nunique()}/{len(symbol_list)} tickers")
 
     start_time = time.perf_counter()
-    captured = capture_output(_render, echo=True)
+    captured = capture_output(_render_table, echo=True)
     save_html(captured, html_path)
 
     print(f"Report saved -> {html_path}")
