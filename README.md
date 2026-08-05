@@ -79,7 +79,7 @@ uv run python -m market_screeners
 uv run python -m market_screeners --export-html path/to/output.html
 ```
 
-Institutional accumulation scanner (same input modes). The implementation now lives in a package module; a thin wrapper at `market_screeners.institution_accumulation` is kept for backward compatibility.
+Institutional accumulation scanner (same input modes). The implementation lives in the package module `market_screeners.screeners.institution`; the previous wrapper (`market_screeners.institution_accumulation`) has been removed.
 
 Preferred (package-style) invocation:
 ```bash
@@ -94,21 +94,6 @@ uv run python -m market_screeners.screeners.institution
 
 # Export HTML
 uv run python -m market_screeners.screeners.institution --export-html data/institution_custom.html
-```
-
-Wrapper (backward compatible) invocation:
-```bash
-# Personal watch list
-uv run python -m market_screeners.institution_accumulation --my
-
-# Quick test (first 10 symbols)
-uv run python -m market_screeners.institution_accumulation --test
-
-# Full universe
-uv run python -m market_screeners.institution_accumulation
-
-# Export HTML
-uv run python -m market_screeners.institution_accumulation --export-html data/institution_custom.html
 ```
 
 Notes:

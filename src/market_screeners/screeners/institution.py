@@ -245,9 +245,7 @@ def _auto_html_path(mode: str) -> str:
 
 
 def main():
-    print(f"INSTITUTION main invoked; argv={sys.argv}")
     universe = load_market_universe()
-    print(f"Loaded market universe with {len(universe)} symbols")
     use_test = "--test" in sys.argv
     use_my = "--my" in sys.argv
     html_path = _flag_value("--export-html")
