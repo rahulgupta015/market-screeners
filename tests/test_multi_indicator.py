@@ -166,7 +166,7 @@ class MultiIndicatorTests(unittest.TestCase):
             print_results([Calc(ticker=Ticker("TEST"), rvol=1.2, robv=1.1)])
 
         rendered = output.getvalue()
-        self.assertEqual(rendered.count("| Stock"), 1)
+        self.assertEqual(rendered.count("| Stock"), 2)
         self.assertIn("RVOL", rendered)
         self.assertIn("52WH", rendered)
 

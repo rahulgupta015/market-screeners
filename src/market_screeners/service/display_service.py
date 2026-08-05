@@ -155,7 +155,7 @@ def format_row(calc: Calc) -> Display:
 DISPLAY_COLS = [
     "Stock", "Market Cap ($B)", "CMP", "DCM", "RVOL", "ROBV", "RSI", "KST", "EMA 8",
     "30 DMA", "50 DMA", "100 DMA", "200 DMA", "Shift %", "CAR", "Zone",
-    "Days Since 52W Low",
+    "Days Since 52W Low", "Stock",
 ]
 
 SPLIT_HEADERS = {
