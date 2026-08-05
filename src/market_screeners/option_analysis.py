@@ -250,51 +250,47 @@ def print_table(snapshots: list[OptionSnapshot]) -> None:
     table.add_column("TICKER", justify="left")
     table.add_column("SPOT ($)", justify="left")
     table.add_column("STRIKE ($)\n(ATM)", justify="left")
-    table.add_column("CALL/PUT WALL ($)\n(Strike)", justify="left")
+    table.add_column("Max C/P\nStrike $", justify="left")
     table.add_column("PCR", justify="left")
     table.add_column("IV\nSKEW", justify="left")
     table.add_column("VOL/OI", justify="left")
     table.add_column("MAX PAIN ($)\nRANGE", justify="left")
     table.add_column("TICKER", justify="left")
 
-    circle = {"green": "green", "red": "red", "yellow": "yellow"}
+    color = {"green": "green", "red": "red", "yellow": "yellow"}
 
     for s in snapshots:
         if s.error:
             table.add_row(f"{s.ticker} !", "-", "-", f"error: {s.error}", "-", "-", "-", "-", s.ticker)
             continue
 
-        ticker_cell = Text(f"{s.ticker} ")
-        ticker_cell.append("\u25CF", style=circle[s.signal])  # colored dot, single-width
-
-        spot_text = Text(f"{s.spot:.2f}" if s.spot is not None else "-")
-        spot_text.stylize(
-            circle[OptionChainAnalyzer.classify_spot_vs_max_pain(s.spot, s.max_pain_low, s.max_pain_high)]
+        spot_cell = Text(f"{s.spot:.2f}" if s.spot is not None else "-")
+        spot_cell.stylize(
+            color[OptionChainAnalyzer.classify_spot_vs_max_pain(s.spot, s.max_pain_low, s.max_pain_high)]
         )
 
-        pcr_text = Text(f"{s.pcr:.2f}" if s.pcr is not None else "-")
-        pcr_text.stylize(circle[OptionChainAnalyzer.classify_pcr(s.pcr)])
+        pcr_cell = Text(f"{s.pcr:.2f}" if s.pcr is not None else "-")
+        pcr_cell.stylize(color[OptionChainAnalyzer.classify_pcr(s.pcr)])
 
-        iv_text = Text(f"{s.iv_skew_pct:+.1f}%" if s.iv_skew_pct is not None else "-")
-        iv_text.stylize(circle[OptionChainAnalyzer.classify_iv_skew(s.iv_skew_pct)])
+        iv_cell = Text(f"{s.iv_skew_pct:+.1f}%" if s.iv_skew_pct is not None else "-")
+        iv_cell.stylize(color[OptionChainAnalyzer.classify_iv_skew(s.iv_skew_pct)])
 
-        if s.hotspot_side:
-            vol_oi_label = f"${s.hotspot_strike:g} {s.hotspot_side} {s.hotspot_ratio:.1f}x"
-        else:
-            vol_oi_label = "-"
-        vol_oi_text = Text(vol_oi_label)
-        vol_oi_text.stylize(circle[OptionChainAnalyzer.classify_hotspot(s.hotspot_side)])
+        vol_oi_label = (
+            f"${s.hotspot_strike:g} {s.hotspot_side} {s.hotspot_ratio:.1f}x" if s.hotspot_side else "-"
+        )
+        vol_oi_cell = Text(vol_oi_label)
+        vol_oi_cell.stylize(color[OptionChainAnalyzer.classify_hotspot(s.hotspot_side)])
 
         call_put_wall = f"{s.max_call_oi_strike:g}/{s.max_put_oi_strike:g}"
 
         table.add_row(
-            ticker_cell,
-            spot_text,
+            s.ticker,
+            spot_cell,
             f"{s.atm_strike:g}",
             call_put_wall,
-            pcr_text,
-            iv_text,
-            vol_oi_text,
+            pcr_cell,
+            iv_cell,
+            vol_oi_cell,
             f"{s.max_pain_low:g}-{s.max_pain_high:g}" if s.max_pain_low is not None else "-",
             s.ticker,
         )
