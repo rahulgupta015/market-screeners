@@ -93,6 +93,7 @@ TICKERS = [
     ("UPRO", 1.0),
     ("SPY", 1.0),
     ("IBIT", 0.5),
+    ("BULL", 0.5),
 ]
 
 # Optional: pin specific tickers to a specific strike instead of
