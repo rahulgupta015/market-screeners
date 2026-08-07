@@ -44,6 +44,15 @@ METRICS COMPUTED (one per column in the printed table):
                          writers) would collectively lose the least money
                          if the stock settled there. Some traders believe
                          price gets pulled toward this zone by expiry.
+  - ATR (1Y)           : Average True Range from 1 year of daily bars --
+                         a VOLATILITY gauge, not a direction signal. Shows
+                         this ticker's typical daily $ move, plus a
+                         percentile showing how today's range compares to
+                         the past year (e.g. "72%ile" = wider than 72% of
+                         the past year's daily ranges). Not colored, since
+                         it doesn't lean bullish or bearish either way --
+                         it's context for sizing stops and sanity-checking
+                         the other columns, not a signal itself.
 
 IMPORTANT CAVEAT ABOUT THE COLOR THRESHOLDS
 -----------------------------------------
@@ -130,6 +139,23 @@ NEAR_MONEY_STRIKE_COUNT = 5
 # other thresholds in this file -- not fit to historical BMI readings.
 BMI_THRESHOLD_PCT = 5.0
 
+# ATR (Average True Range) -- a volatility gauge, not a direction
+# signal. It tells you the stock's TYPICAL daily range over the lookback
+# period, so you can sanity-check whether today's option-chain reading
+# lines up with a normal-sized move or an unusually large one for this
+# specific ticker.
+#
+# We fetch ATR_LOOKBACK_PERIOD of DAILY bars and compute a 14-period
+# ATR from them (14 is the standard/default length for ATR). Using a
+# full year of daily history doesn't change today's ATR value much by
+# itself (ATR(14) only really "looks back" 14 bars), but it DOES let
+# us rank today's ATR against the past year and say how typical
+# today's range is for this ticker -- that's what the % after the ATR
+# value in the table means (e.g. "72%" = today's ATR is higher than
+# 72% of daily ATR readings over the past year for this ticker).
+ATR_LOOKBACK_PERIOD = "1y"
+ATR_LENGTH = 14
+
 
 # ---------------------------------------------------------------------
 # DATA CONTAINER
@@ -156,6 +182,8 @@ class OptionSnapshot:
     hotspot_ratio: Optional[float] = None    # volume / openInterest at that strike
     bmi_pct: Optional[float] = None          # normalized ATM premium skew, (C-P)/(C+P) * 100
     strike_is_override: bool = False         # True if the strike was pinned by the user, not auto-ATM
+    atr: Optional[float] = None              # 14-period ATR ($) from 1 year of daily bars
+    atr_percentile: Optional[float] = None   # where today's ATR ranks vs the past year, 0-100
     error: Optional[str] = None
 
 
@@ -285,6 +313,13 @@ class OptionChainAnalyzer:
 
             # BMI: see _compute_bmi() below for the full explanation.
             snap.bmi_pct = self._compute_bmi(calls, puts, snap.atm_strike)
+
+            # ATR: see _compute_atr() below for the full explanation.
+            # This is a SEPARATE fetch from the option chain above --
+            # it pulls 1 year of daily stock price bars (not options
+            # data) to measure this ticker's typical daily range.
+            daily_bars = tk.history(period=ATR_LOOKBACK_PERIOD, interval="1d")
+            snap.atr, snap.atr_percentile = self._compute_atr(daily_bars)
 
         except Exception as e:
             # Anything unexpected (bad ticker symbol, yfinance hiccup,
@@ -420,6 +455,81 @@ class OptionChainAnalyzer:
             return None
 
         return round((call_mid - put_mid) / denom * 100, 1)
+
+    @staticmethod
+    def _compute_atr(daily_bars) -> tuple[Optional[float], Optional[float]]:
+        """
+        ATR (Average True Range) -- a volatility gauge, NOT a
+        directional signal. It answers "how much does this stock
+        typically move in a day," in dollars, regardless of which way.
+
+        For each daily bar, "True Range" is the LARGEST of:
+          1. today's high - today's low
+          2. |today's high - yesterday's close|
+          3. |today's low  - yesterday's close|
+        Using the largest of the three (not just high-low) matters
+        because it also captures overnight gaps -- if the stock gapped
+        up or down between yesterday's close and today's open, plain
+        high-low would understate how far it actually moved.
+
+        ATR is then a smoothed rolling average of True Range over
+        ATR_LENGTH periods (14, the industry-standard default set by
+        Welles Wilder, who invented ATR in 1978). We compute it here
+        with plain pandas instead of the pandas_ta library -- pandas_ta
+        pulls in numba as a dependency, which frequently fails to
+        install on Windows / newer Python versions due to numpy version
+        conflicts (exactly the error you hit). ATR's formula is simple
+        enough that we don't need an extra library for it.
+
+        Specifically we use an exponentially-weighted moving average
+        with alpha = 1/ATR_LENGTH, which is mathematically Wilder's
+        original smoothing method (the same one pandas_ta uses by
+        default internally) -- so this produces the same standard ATR
+        values you'd see in any charting platform.
+
+        We also report atr_percentile: where TODAY's ATR ranks against
+        every ATR reading in the lookback period, from 0 (lowest range
+        in the period) to 100 (highest). This turns a bare dollar
+        number ("ATR is $4.20") into context ("today's range is
+        typical" vs "today's range is unusually wide for this ticker").
+
+        Returns (atr_dollars, atr_percentile) or (None, None) if there
+        wasn't enough history to compute it.
+        """
+        if daily_bars is None or daily_bars.empty or len(daily_bars) < ATR_LENGTH + 1:
+            return None, None
+
+        high = daily_bars["High"]
+        low = daily_bars["Low"]
+        close = daily_bars["Close"]
+        prev_close = close.shift(1)
+
+        true_range = pd.concat(
+            [high - low, (high - prev_close).abs(), (low - prev_close).abs()],
+            axis=1,
+        ).max(axis=1)
+
+        # Wilder's smoothing = an exponentially-weighted moving average
+        # with alpha = 1/length. min_periods=ATR_LENGTH means the first
+        # ATR_LENGTH-1 bars come back as NaN (not enough data yet to
+        # smooth), matching how pandas_ta and every standard charting
+        # platform handle the warm-up period.
+        atr_series = true_range.ewm(alpha=1 / ATR_LENGTH, adjust=False, min_periods=ATR_LENGTH).mean()
+
+        valid_atr = atr_series.dropna()
+        if valid_atr.empty:
+            return None, None
+
+        current_atr = atr_series.iloc[-1]
+        if pd.isna(current_atr):
+            return None, None
+
+        # Percentile rank of today's ATR against the full ATR history
+        # we have available (up to ~1 year, minus the first ATR_LENGTH
+        # bars needed to warm up the rolling average).
+        percentile = (valid_atr < current_atr).mean() * 100
+
+        return round(float(current_atr), 2), round(float(percentile), 0)
 
     @staticmethod
     def _compute_max_pain(calls, puts):
@@ -654,13 +764,14 @@ def print_table(snapshots: list[OptionSnapshot]) -> None:
     table.add_column("VOL/OI", justify="left")
     table.add_column("BMI", justify="left")
     table.add_column("MAX PAIN ($)\nRANGE", justify="left")
+    table.add_column("ATR (1Y)\n$ / %ile", justify="left")
     table.add_column("TICKER", justify="left")
 
     color = {"green": "green", "red": "red", "yellow": "yellow"}
 
     for s in snapshots:
         if s.error:
-            table.add_row(f"{s.ticker} !", "-", "-", f"error: {s.error}", "-", "-", "-", "-", "-", s.ticker)
+            table.add_row(f"{s.ticker} !", "-", "-", f"error: {s.error}", "-", "-", "-", "-", "-", "-", s.ticker)
             continue
 
         # Spot price cell is colored based on where it sits vs the max
@@ -689,6 +800,15 @@ def print_table(snapshots: list[OptionSnapshot]) -> None:
 
         strike_label = f"{s.atm_strike:g}*" if s.strike_is_override else f"{s.atm_strike:g}"
 
+        # ATR isn't a bullish/bearish lean like the other columns -- it's
+        # a volatility gauge -- so it's shown plain, uncolored, unlike
+        # PCR/IV/BMI/hotspot above.
+        atr_label = (
+            f"${s.atr:.2f} ({s.atr_percentile:.0f}%ile)"
+            if s.atr is not None and s.atr_percentile is not None
+            else "-"
+        )
+
         table.add_row(
             s.ticker,
             spot_cell,
@@ -699,6 +819,7 @@ def print_table(snapshots: list[OptionSnapshot]) -> None:
             vol_oi_cell,
             bmi_cell,
             f"{s.max_pain_low:g}-{s.max_pain_high:g}" if s.max_pain_low is not None else "-",
+            atr_label,
             s.ticker,
         )
 
