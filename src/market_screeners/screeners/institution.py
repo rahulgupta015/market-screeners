@@ -1,5 +1,10 @@
-# Institutional accumulation screener moved into package-style module.
-# Original logic kept; this module exports main().
+# Institutional accumulation screener.
+#
+# Run:
+#     uv run python -m market_screeners.screeners.institution --my       (personal watch list)
+#     uv run python -m market_screeners.screeners.institution --test     (first 10 symbols)
+#     uv run python -m market_screeners.screeners.institution            (full universe)
+#     uv run python -m market_screeners.screeners.institution --export-html path/to/output.html
 
 import pandas as pd
 import yfinance as yf

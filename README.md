@@ -1,9 +1,11 @@
 # Market Screeners
 
-A console stock screener for US stocks and ETFs. It downloads two years of
-daily Yahoo Finance data, computes technical indicators with `pandas-ta-classic`,
-and prints a color-coded status table for every requested ticker. Each run also
-saves a self-contained HTML snapshot preserving the ANSI colors seen in the terminal.
+Three independent console screeners for US stocks and ETFs: a multi-indicator
+technical scanner, an institutional-accumulation scanner, and an option-chain
+mood scanner. Each downloads its own Yahoo Finance data, computes its own
+indicators (using `pandas-ta-classic` for the technical ones), and prints a
+color-coded status table for every requested ticker. Every run also saves a
+self-contained HTML snapshot preserving the ANSI colors seen in the terminal.
 
 ## Attribution and Disclaimer
 
@@ -100,22 +102,27 @@ uv run python -m market_screeners
 uv run python -m market_screeners --export-html path/to/output.html
 ```
 
+**Note:** `uv run python -m market_screeners` is a shortcut for
+`uv run python -m market_screeners.screeners.multi_indicator` — both run the
+same screener. The scheduled GitHub Actions workflow uses the explicit
+`market_screeners.screeners.multi_indicator` path.
+
 ### 2. Institutional Accumulation Scanner
 
 Analyzes institutional buying patterns using volume flow, OBV/AD divergence, and Wyckoff-style analysis (same input modes):
 
 ```bash
 # Personal watch list
-uv run python -m market_screeners.institution_accumulation --my
+uv run python -m market_screeners.screeners.institution --my
 
 # Quick test (first 10 symbols)
-uv run python -m market_screeners.institution_accumulation --test
+uv run python -m market_screeners.screeners.institution --test
 
 # Full universe
-uv run python -m market_screeners.institution_accumulation
+uv run python -m market_screeners.screeners.institution
 
 # Export HTML
-uv run python -m market_screeners.institution_accumulation --export-html data/institution_custom.html
+uv run python -m market_screeners.screeners.institution --export-html data/institution_custom.html
 ```
 
 **Note:** The institutional scanner is a separate module and is not invoked by `uv run python -m market_screeners`. Run it directly as shown above.
@@ -128,42 +135,54 @@ Reads the mood of the option market for a list of tickers by analyzing put/call 
 
 ```bash
 # Personal watch list
-uv run python -m market_screeners.option_analysis --my
+uv run python -m market_screeners.screeners.option_analysis --my
 
 # Quick test (first 10 symbols)
-uv run python -m market_screeners.option_analysis --test
+uv run python -m market_screeners.screeners.option_analysis --test
 
 # Full universe
-uv run python -m market_screeners.option_analysis
+uv run python -m market_screeners.screeners.option_analysis
 
 # Export HTML
-uv run python -m market_screeners.option_analysis --export-html data/option_analysis_custom.html
+uv run python -m market_screeners.screeners.option_analysis --export-html data/option_analysis_custom.html
 ```
 
 **Note:** The option analysis scanner fetches live option chain data (may take 1-2 seconds per ticker depending on network speed). Run it in `--test` mode first to verify connectivity and performance.
 
 ## GitHub Actions
 
-A workflow runs the full screener daily (Mon–Fri at 9 PM EST) and commits the
-HTML report to `data/` in the repository, named by day of week (e.g.
-`data/screener_FRI.html`). At most 7 files accumulate — one per day — each
-overwritten in place on its next occurrence. You can also trigger the workflow
-manually from the Actions tab.
+A workflow runs `market_screeners.screeners.multi_indicator` (the
+multi-indicator screener only — the institution and option-analysis screeners
+are not scheduled) daily (Mon–Fri at 1 AM EST) and commits the HTML report to
+`data/` in the repository, named by day of week (e.g. `data/screener_FRI.html`).
+At most 7 files accumulate — one per day — each overwritten in place on its
+next occurrence. You can also trigger the workflow manually from the Actions tab.
 
 ## Architecture
 
+There are three independent screeners, each a self-contained module under
+`src/market_screeners/screeners/` with its own `main()` and CLI flag handling
+(`--my`, `--test`, `--export-html`). All three share the same `model/` and
+`service/` layer for market-universe data and HTML export:
+
 ```
-market universe → Ticker → compute service → Calc → display service → Display → console + HTML
+market universe → Ticker → (per-screener analysis) → console + HTML
 ```
 
-- `model/` — dataclasses and market-universe data
-- `service/compute_service.py` — fetches Yahoo Finance data, calculates indicators and CAR
-- `service/display_service.py` — formats, colorizes, sorts, and prints results
-- `service/html_service.py` — captures ANSI output and exports it as self-contained HTML
-- `cli/main.py` — parses CLI flags and orchestrates the services
+- `model/` — dataclasses and market-universe data shared by all screeners
+- `service/compute_service.py` — fetches Yahoo Finance data, calculates indicators and CAR (multi-indicator only)
+- `service/display_service.py` — formats, colorizes, sorts, and prints results (multi-indicator only)
+- `service/html_service.py` — captures ANSI output and exports it as self-contained HTML (shared by all three)
+- `cli/main.py` — parses CLI flags and orchestrates the multi-indicator services
+- `screeners/multi_indicator.py` — thin entry point that delegates to `cli/main.py`
+- `screeners/institution.py` — self-contained institutional-accumulation screener (indicators, scoring, and CLI all in one module)
+- `screeners/option_analysis.py` — self-contained option-chain mood screener (metrics, coloring, and CLI all in one module)
 
 `Ticker` is immutable metadata. `Calc` holds raw numeric/date results. `Display`
 holds final strings with ANSI color codes, breakout codes, and formatted dates.
+These three model types are used by the multi-indicator screener; the
+institution and option-analysis screeners work directly off pandas DataFrames
+and their own small dataclasses instead.
 
 ## Indicators
 

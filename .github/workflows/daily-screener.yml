@@ -20,7 +20,7 @@ jobs:
       - name: Run screener and export HTML report
         run: |
           DAY=$(date +%a | tr '[:lower:]' '[:upper:]')
-          uv run python -m market_screeners \
+          uv run python -m market_screeners.screeners.multi_indicator \
             --export-html data/screener_${DAY}.html
 
       - name: Commit snapshot to repository
