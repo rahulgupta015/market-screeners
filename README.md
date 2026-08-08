@@ -20,42 +20,57 @@ for the original material. Related videos: [How to find best stocks using a data
 and [How to build your own data bank](https://youtu.be/1z-xatk8LKg). Nothing
 here is investment advice — always do your own research and consult a qualified professional.
 
-## Requirements
-
-- Python 3.12 or newer
-- [uv](https://docs.astral.sh/uv/getting-started/)
-- Internet access to download market data from Yahoo Finance
-
 ## Setup
 
-1. Clone or download this repository and open a terminal in the root directory
-   (where `pyproject.toml` lives).
+This project is intended for traders and investors who want to screen US stocks and ETFs using technical indicators and option chain analysis. Here's how to get started:
 
-2. Confirm Python 3.12+:
+### First-Time Setup
 
+1. **Clone or download this repository** and open a terminal in the root directory (where `pyproject.toml` lives).
+
+2. **Confirm Python 3.12+**:
    ```bash
    python --version
    # On Windows: py --version
    ```
+   If you need to install Python, download it from [python.org](https://www.python.org/downloads/).
 
-3. Install [uv](https://docs.astral.sh/uv/getting-started/) if not already installed.
+3. **Install [uv](https://docs.astral.sh/uv/getting-started/)** if not already installed:
+   ```bash
+   # macOS / Linux:
+   curl -LsSf https://astral.sh/uv/install.sh | sh
+   
+   # Windows (PowerShell):
+   powershell -c "irm https://astral.sh/uv/install.ps1 | iex"
+   ```
 
-4. Create the virtual environment and install dependencies:
-
+4. **Create the virtual environment and install dependencies**:
    ```bash
    uv sync
    ```
+   This creates `.venv` from `pyproject.toml` and `uv.lock`. You don't need to activate it when using `uv run`.
 
-   This creates `.venv` from `pyproject.toml` and `uv.lock`. You don't need to
-   activate it when using `uv run`.
-
-5. Verify the installation:
-
+5. **Verify the installation**:
    ```bash
    uv run python -m unittest discover -s tests -v
    ```
-
    Tests use synthetic data and mocked Yahoo Finance responses — no network requests.
+
+6. **Set up your personal watch list (optional)**:
+   ```bash
+   # Copy the example file to my_tickers.txt
+   cp my_tickers.example.txt my_tickers.txt
+   
+   # On Windows:
+   copy my_tickers.example.txt my_tickers.txt
+   ```
+   Then edit `my_tickers.txt` and add your own stock symbols (one per line, e.g., `AAPL`, `MSFT`).
+
+### Running the Screeners
+
+Once setup is complete, you can run any of the three screeners:
+
+
 
 ## Tests
 
@@ -65,8 +80,14 @@ uv run python -m unittest discover -s tests -v
 
 ## Run
 
+There are three main screeners available:
+
+### 1. Multi-Indicator Screener (default)
+
+Scans US stocks and ETFs using technical indicators (DMA, CAR, MAC, RSI, KST, Zone, Shift%).
+
 ```bash
-# Personal watch list (reads from my_tickers.txt — see my_tickers.example.txt)
+# Personal watch list
 uv run python -m market_screeners --my
 
 # First 10 symbols (quick test)
@@ -79,36 +100,47 @@ uv run python -m market_screeners
 uv run python -m market_screeners --export-html path/to/output.html
 ```
 
-Institutional accumulation scanner (same input modes). The implementation lives in the package module `market_screeners.screeners.institution`; the previous wrapper (`market_screeners.institution_accumulation`) has been removed.
+### 2. Institutional Accumulation Scanner
 
-Preferred (package-style) invocation:
+Analyzes institutional buying patterns using volume flow, OBV/AD divergence, and Wyckoff-style analysis (same input modes):
+
 ```bash
 # Personal watch list
-uv run python -m market_screeners.screeners.institution --my
+uv run python -m market_screeners.institution_accumulation --my
 
 # Quick test (first 10 symbols)
-uv run python -m market_screeners.screeners.institution --test
+uv run python -m market_screeners.institution_accumulation --test
 
 # Full universe
-uv run python -m market_screeners.screeners.institution
+uv run python -m market_screeners.institution_accumulation
 
 # Export HTML
-uv run python -m market_screeners.screeners.institution --export-html data/institution_custom.html
+uv run python -m market_screeners.institution_accumulation --export-html data/institution_custom.html
 ```
 
-Notes:
-- The institutional scanner is separate and is not invoked by `uv run python -m market_screeners` by default.
-- Fetch vs analysis: the scanner fetches ~210 days but analyzes the most recent 120 days. Generally fetch ~80–100 days more than analysis to warm up indicators (SMA/EMA/ATR/OBV windows) and avoid edge effects.
-- The 52-week high/low dates and prices are still computed for internal analysis but are intentionally hidden from console and HTML output to reduce clutter; only "Days Since 52W Low" is shown.
+**Note:** The institutional scanner is a separate module and is not invoked by `uv run python -m market_screeners`. Run it directly as shown above.
 
+**Data fetch / analysis note:** The institutional scanner fetches a longer history (210 days) but analyzes the most recent 120 days. In general, set the fetch period about 80–100 days longer than the analysis window to properly warm up technical indicators (sma/ema/atr/obv windows and other rolling stats). This avoids edge effects and ensures moving averages and other indicators have enough prior data to be stable.
 
-Each run automatically saves a timestamped HTML snapshot to `data/` (e.g.
-`data/screener_full_20260802_143022.html`). Pass `--export-html` to override
-the output path.
+### 3. Option Analysis Scanner
 
-To use `--my` mode, copy `my_tickers.example.txt` to `my_tickers.txt` and add
-your own symbols (one per line). The file is gitignored so your watch list stays
-private.
+Reads the mood of the option market for a list of tickers by analyzing put/call ratios, IV skew, BMI (Balanced Method Indicator), max pain, and other option-chain metrics (same input modes):
+
+```bash
+# Personal watch list
+uv run python -m market_screeners.option_analysis --my
+
+# Quick test (first 10 symbols)
+uv run python -m market_screeners.option_analysis --test
+
+# Full universe
+uv run python -m market_screeners.option_analysis
+
+# Export HTML
+uv run python -m market_screeners.option_analysis --export-html data/option_analysis_custom.html
+```
+
+**Note:** The option analysis scanner fetches live option chain data (may take 1-2 seconds per ticker depending on network speed). Run it in `--test` mode first to verify connectivity and performance.
 
 ## GitHub Actions
 

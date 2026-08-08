@@ -68,10 +68,16 @@ Specific known weak spots are called out as comments at each threshold
 below.
 
 Run:
-    uv run python src/market_screeners/option_analysis.py
+    uv run python -m market_screeners.option_analysis --my       (personal watch list)
+    uv run python -m market_screeners.option_analysis --test     (first 10 symbols)
+    uv run python -m market_screeners.option_analysis            (full universe)
+    uv run python -m market_screeners.option_analysis --export-html path/to/output.html
 """
 
+import sys
 from dataclasses import dataclass
+from datetime import datetime
+from pathlib import Path
 from typing import Optional
 
 import yfinance as yf
@@ -81,9 +87,33 @@ from rich.console import Console
 from rich.table import Table
 from rich.text import Text
 
-# ---------------------------------------------------------------------
-# CONFIG
-# ---------------------------------------------------------------------
+from market_screeners.model.market_universe import load_market_universe
+from market_screeners.model.ticker import Ticker
+from market_screeners.service.html_service import capture_output, save_html
+
+# Default tickers for reference (used when running full universe or if not in my/test mode)
+DEFAULT_TICKERS = [
+    ("TQQQ", 0.5),
+    ("QQQ", 1.0),
+    ("UPRO", 1.0),
+    ("SPY", 1.0),
+    ("IBIT", 0.5),
+    ("BULL", 0.5),
+]
+
+# Data directory for HTML export
+DATA_DIR = Path("data")
+
+# Ticker-to-strike-interval mapping for common tickers
+STRIKE_INTERVALS = {
+    "TQQQ": 0.5,
+    "IBIT": 0.5,
+    "BULL": 0.5,
+}
+
+# Default strike interval for tickers not in the mapping
+DEFAULT_STRIKE_INTERVAL = 1.0
+
 # Each entry is (ticker, strike_interval):
 #   strike_interval = the real $ gap between consecutive listed strikes
 #   for that ticker (e.g. TQQQ lists strikes every $0.50, QQQ/SPY/UPRO
@@ -96,14 +126,7 @@ from rich.text import Text
 # it converts "N strikes away" into a precise dollar distance using
 # each ticker's REAL spacing, instead of assuming every ticker spaces
 # strikes the same way.
-TICKERS = [
-    ("TQQQ", 0.5),
-    ("QQQ", 1.0),
-    ("UPRO", 1.0),
-    ("SPY", 1.0),
-    ("IBIT", 0.5),
-    ("BULL", 0.5),
-]
+TICKERS = DEFAULT_TICKERS
 
 # Optional: pin specific tickers to a specific strike instead of
 # auto-ATM (closest strike to live spot). Leave empty ({}) to always
@@ -116,6 +139,41 @@ TICKERS = [
 # every time. Pinning just changes WHICH strike gets analyzed, in case
 # the one you care about isn't the current ATM one.
 STRIKE_OVERRIDES: dict[str, float] = {}
+
+
+# CLI helper functions
+def _flag_value(flag: str) -> str | None:
+    """Extract the value following a flag in sys.argv."""
+    if flag in sys.argv:
+        idx = sys.argv.index(flag)
+        if idx + 1 < len(sys.argv):
+            return sys.argv[idx + 1]
+    return None
+
+
+def _load_my_tickers() -> list[str]:
+    """Load personal watch list from my_tickers.txt."""
+    MY_TICKERS_FILE = Path("my_tickers.txt")
+    if not MY_TICKERS_FILE.exists():
+        print(
+            f"Error: {MY_TICKERS_FILE} not found.\n"
+            "Copy my_tickers.example.txt to my_tickers.txt and add your symbols."
+        )
+        sys.exit(1)
+    lines = MY_TICKERS_FILE.read_text(encoding="utf-8").splitlines()
+    return [line.strip() for line in lines if line.strip() and not line.startswith("#")]
+
+
+def _get_strike_interval(ticker: str) -> float:
+    """Get the strike interval for a ticker."""
+    return STRIKE_INTERVALS.get(ticker, DEFAULT_STRIKE_INTERVAL)
+
+
+def _auto_html_path(mode: str) -> str:
+    """Generate automatic HTML export path with timestamp."""
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+    ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+    return str(DATA_DIR / f"option_analysis_{mode}_{ts}.html")
 
 # How many REAL listed strikes above/below the reference strike count
 # as "near the money" for IV skew and the vol/OI hotspot. Combined with
@@ -829,7 +887,56 @@ def print_table(snapshots: list[OptionSnapshot]) -> None:
 # ---------------------------------------------------------------------
 # MAIN
 # ---------------------------------------------------------------------
-if __name__ == "__main__":
-    analyzer = OptionChainAnalyzer(TICKERS)
+def main():
+    """Main entry point with CLI argument handling."""
+    import time
+    
+    # Determine tickers source
+    universe = load_market_universe()
+    use_test = "--test" in sys.argv
+    use_my = "--my" in sys.argv
+    html_path = _flag_value("--export-html")
+
+    if use_test:
+        # Use first 10 tickers from universe
+        symbols = sorted(universe.keys())[:10]
+        mode = "test"
+        print(f"(Running OPTION ANALYSIS in TEST mode with {len(symbols)} tickers)\n")
+    elif use_my:
+        # Load from personal watch list
+        symbols = _load_my_tickers()
+        mode = "my"
+        print(f"(Running OPTION ANALYSIS in MY mode with {len(symbols)} tickers)\n")
+    else:
+        # Use full universe
+        symbols = sorted(universe.keys())
+        mode = "full"
+
+    # Build ticker list with strike intervals
+    tickers = [(symbol, _get_strike_interval(symbol)) for symbol in symbols]
+
+    # Generate HTML path if not specified
+    if html_path is None:
+        html_path = _auto_html_path(mode)
+
+    print(f"Fetching option chain data for {len(tickers)} tickers...\n")
+
+    # Run the analyzer
+    analyzer = OptionChainAnalyzer(tickers)
     analyzer.run()
-    print_table(analyzer.snapshots)
+
+    # Render table (with capture for HTML export)
+    def _render():
+        print_table(analyzer.snapshots)
+
+    start_time = time.perf_counter()
+    captured = capture_output(_render, echo=True)
+    save_html(captured, html_path)
+
+    print(f"\nReport saved -> {html_path}")
+    elapsed = time.perf_counter() - start_time
+    print(f"Execution time: {elapsed:.2f}s")
+
+
+if __name__ == "__main__":
+    main()
