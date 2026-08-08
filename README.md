@@ -70,9 +70,21 @@ This project is intended for traders and investors who want to screen US stocks 
 
 ### Running the Screeners
 
-Once setup is complete, you can run any of the three screeners:
+Once setup is complete, you can run any of the three screeners individually
+(see [Run](#run) below), or run all three back to back with the bundled
+shell script:
 
+```bash
+./run_screeners.sh            # defaults to --my (personal watch list)
+./run_screeners.sh --test     # runs all three with --test (first 10 symbols)
+./run_screeners.sh --export-html data/custom.html   # forwards any flag to all three
+```
 
+`run_screeners.sh` lives in the repo root. It activates `.venv` if one exists
+(Git Bash on Windows uses `.venv/Scripts/activate`; macOS/Linux uses
+`.venv/bin/activate`), falling back to `uv run` if no `.venv` is found. Any
+flags you pass are forwarded to all three screeners, including
+`--export-html`. Make it executable once with `chmod +x run_screeners.sh`.
 
 ## Tests
 
@@ -82,7 +94,9 @@ uv run python -m unittest discover -s tests -v
 
 ## Run
 
-There are three main screeners available:
+There are three main screeners available. Run them individually as shown
+below, or use `./run_screeners.sh` (see [Running the Screeners](#running-the-screeners))
+to run all three in one command.
 
 ### 1. Multi-Indicator Screener (default)
 
@@ -177,6 +191,7 @@ market universe → Ticker → (per-screener analysis) → console + HTML
 - `screeners/multi_indicator.py` — thin entry point that delegates to `cli/main.py`
 - `screeners/institution.py` — self-contained institutional-accumulation screener (indicators, scoring, and CLI all in one module)
 - `screeners/option_analysis.py` — self-contained option-chain mood screener (metrics, coloring, and CLI all in one module)
+- `run_screeners.sh` — repo-root convenience script that runs all three screeners in one command, forwarding any flags (`--my`, `--test`, `--export-html`) to each
 
 `Ticker` is immutable metadata. `Calc` holds raw numeric/date results. `Display`
 holds final strings with ANSI color codes, breakout codes, and formatted dates.
