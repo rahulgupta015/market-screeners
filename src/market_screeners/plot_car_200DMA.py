@@ -27,7 +27,8 @@ def compute_car(close_prices):
 # ---------------------------------------------------------
 # Tickers to compare
 # ---------------------------------------------------------
-tickers = ["BULL", "PG", "ADP", "TMO", "NDAQ", "JEPI"]  # 6 tickers
+# tickers = ["XLP", "TJX", "ADP", "TFC", "NDAQ", "COF"]  # 6 tickers
+tickers = ["IBIT", "BULL", "ORCX", "NFXL", "METU", "MSFU"]  # 6 tickers
 
 
 # ---------------------------------------------------------
@@ -129,3 +130,7 @@ for i in range(len(tickers), len(axes)):
 
 plt.tight_layout()
 plt.show()
+
+
+# TODO:
+# Backtest CAR streak=10 breakouts: Using the market-screeners CAR logic (screeners/institution.py / compute_car), scan a stock/ETF universe over multi-year history, flag every date where the CAR streak first hits 10 (the cap). For each flagged event, compute forward returns at holding periods of 10, 20, 30, 40, 50, 60, 70, 80, and 90 trading days. Report win rate, average/median return, and max drawdown per holding period, and identify which holding period has the best risk-adjusted profit-booking point. Compare against a random-day baseline.
