@@ -76,7 +76,7 @@ Run:
 
 import sys
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Optional
 
@@ -214,6 +214,13 @@ BMI_THRESHOLD_PCT = 5.0
 ATR_LOOKBACK_PERIOD = "1y"
 ATR_LENGTH = 14
 
+# How many months ahead to scan when looking for the single highest-OI
+# call strike and highest-OI put strike ACROSS ALL expiries (not just
+# the nearest one). This is a separate, heavier pass -- it fetches the
+# full chain for every expiry out to this many months, so it's slower
+# than the rest of the scan.
+MAX_OI_SCAN_MONTHS = 6
+
 
 # ---------------------------------------------------------------------
 # DATA CONTAINER
@@ -242,6 +249,11 @@ class OptionSnapshot:
     strike_is_override: bool = False         # True if the strike was pinned by the user, not auto-ATM
     atr: Optional[float] = None              # 14-period ATR ($) from 1 year of daily bars
     atr_percentile: Optional[float] = None   # where today's ATR ranks vs the past year, 0-100
+    # Highest-OI call/put strike found by scanning EVERY expiry out to
+    # MAX_OI_SCAN_MONTHS (not just the nearest expiry like max_call_oi_strike
+    # / max_put_oi_strike above). Each is (strike, open_interest, expiry_date_str).
+    max_oi_call_6mo: Optional[tuple[float, int, str]] = None
+    max_oi_put_6mo: Optional[tuple[float, int, str]] = None
     error: Optional[str] = None
 
 
@@ -318,7 +330,7 @@ class OptionChainAnalyzer:
             # most sensitive to today's intraday sentiment.
             expirations = tk.options
             if not expirations:
-                snap.error = "No option expirations found"
+                snap.error = "No option"
                 return snap
             expiry = expirations[0]
 
@@ -379,12 +391,81 @@ class OptionChainAnalyzer:
             daily_bars = tk.history(period=ATR_LOOKBACK_PERIOD, interval="1d")
             snap.atr, snap.atr_percentile = self._compute_atr(daily_bars)
 
+            # Max OI across ALL expiries out to MAX_OI_SCAN_MONTHS: see
+            # _scan_max_oi_across_expiries() below. This re-fetches every
+            # expiry's chain (separate from the "nearest expiry" chain
+            # pulled above), so it's the slowest part of the scan.
+            snap.max_oi_call_6mo, snap.max_oi_put_6mo = self._scan_max_oi_across_expiries(
+                tk, expirations
+            )
+
         except Exception as e:
             # Anything unexpected (bad ticker symbol, yfinance hiccup,
             # missing data) lands here instead of crashing the whole run.
             snap.error = str(e)
 
         return snap
+
+    @staticmethod
+    def _scan_max_oi_across_expiries(
+            tk: "yf.Ticker", expirations: tuple[str, ...]
+    ) -> tuple[Optional[tuple[float, int, str]], Optional[tuple[float, int, str]]]:
+        """
+        Scans EVERY listed expiry out to MAX_OI_SCAN_MONTHS months ahead
+        and finds the single highest-OI call strike and highest-OI put
+        strike across the whole set -- i.e. "of everything listed over
+        the next 6 months, where is the single biggest open-interest
+        wall, on each side, and which expiry is it on."
+
+        This is a different question from max_call_oi_strike /
+        max_put_oi_strike above, which only look at the NEAREST expiry.
+        A strike 3 months out with huge OI (e.g. a LEAPS-style level)
+        won't show up in those nearest-expiry fields, but will show up
+        here.
+
+        Returns ((call_strike, call_oi, call_expiry), (put_strike, put_oi, put_expiry)),
+        with either side (or both) as None if no data was found (e.g.
+        ticker has no listed expiries within the window, or a request
+        failed for every expiry).
+
+        NOTE: this issues one network request per expiry (via
+        tk.option_chain(expiry)), so a ticker with many weekly expiries
+        listed 6 months out means many requests -- this is the slowest
+        part of the whole scan, and the most likely place to hit
+        Yahoo's rate limiting if you run this often.
+        """
+        cutoff = datetime.today() + timedelta(days=30 * MAX_OI_SCAN_MONTHS)
+        expiries_in_range = [
+            e for e in expirations
+            if datetime.strptime(e, "%Y-%m-%d") <= cutoff
+        ]
+
+        best_call: Optional[tuple[float, int, str]] = None  # (strike, OI, expiry)
+        best_put: Optional[tuple[float, int, str]] = None
+
+        for expiry in expiries_in_range:
+            try:
+                chain = tk.option_chain(expiry)
+            except Exception:
+                # One bad/rate-limited expiry shouldn't kill the whole
+                # scan for this ticker -- skip it and keep going.
+                continue
+
+            calls, puts = chain.calls, chain.puts
+
+            if not calls.empty and calls["openInterest"].notna().any():
+                row = calls.loc[calls["openInterest"].idxmax()]
+                oi = int(row["openInterest"])
+                if best_call is None or oi > best_call[1]:
+                    best_call = (float(row["strike"]), oi, expiry)
+
+            if not puts.empty and puts["openInterest"].notna().any():
+                row = puts.loc[puts["openInterest"].idxmax()]
+                oi = int(row["openInterest"])
+                if best_put is None or oi > best_put[1]:
+                    best_put = (float(row["strike"]), oi, expiry)
+
+        return best_call, best_put
 
     @staticmethod
     def _compute_iv_skew(calls, puts, spot: float, near_money_window: float) -> Optional[float]:
@@ -800,17 +881,17 @@ class OptionChainAnalyzer:
 # ---------------------------------------------------------------------
 def print_table(snapshots: list[OptionSnapshot]) -> None:
     """
-    Renders one row per ticker using `rich`, coloring each metric cell
-    with its own classify_* result (see OptionChainAnalyzer above for
-    what each color means). Purely presentation -- no calculations
-    happen in this function.
+    Renders one row per ticker in a single wide table (back to the
+    original layout, per user preference over the stacked-card
+    version). To keep the table narrow enough to avoid terminal
+    wrapping:
+      - Every header is broken across 2 lines (sometimes 3) so each
+        column is only as wide as its longest WORD, not its full label.
+      - The two 6mo-scan cells are compacted: OI uses "k" notation
+        (2,638 -> "2.6k") and the expiry date drops to 2-digit year
+        (2026-08-21 -> "21-08-2026"), both via _compact_oi_label().
+    Coloring logic is unchanged from before.
     """
-    # force_terminal=True keeps ANSI color codes flowing even though this is
-    # printed through capture_output()'s redirected stdout, which isn't a
-    # real tty. Without it, Rich silently detects "not a terminal" and drops
-    # all color -- both on screen and in the saved HTML report. A generous
-    # fixed width avoids Rich falling back to an 80-column wrap for this
-    # wide table.
     console = Console(force_terminal=True, color_system="standard", width=200)
     table = Table(
         show_header=True,
@@ -820,22 +901,23 @@ def print_table(snapshots: list[OptionSnapshot]) -> None:
     )
 
     table.add_column("TICKER", justify="left")
-    table.add_column("SPOT ($)", justify="left")
-    table.add_column("STRIKE ($)\n(ATM, * = pinned)", justify="left")
-    table.add_column("Max C/P\nStrike $", justify="left")
+    table.add_column("SPOT\n($)", justify="left")
+    table.add_column("STRIKE\n(ATM)", justify="left")
+    table.add_column("MAX C/P\n(near)", justify="left")
     table.add_column("PCR", justify="left")
     table.add_column("IV\nSKEW", justify="left")
-    table.add_column("VOL/OI", justify="left")
+    table.add_column("VOL/OI\nHOT", justify="left")
     table.add_column("BMI", justify="left")
-    table.add_column("MAX PAIN ($)\nRANGE", justify="left")
-    table.add_column("ATR (1Y)\n$ / %ile", justify="left")
-    table.add_column("TICKER", justify="left")
+    table.add_column("MAX\nPAIN", justify="left")
+    table.add_column("ATR\n(1Y)", justify="left")
+    table.add_column("CALL MAX\n(6mo)", justify="left")
+    table.add_column("PUT MAX\n(6mo)", justify="left")
 
     color = {"green": "green", "red": "red", "yellow": "yellow"}
 
     for s in snapshots:
         if s.error:
-            table.add_row(f"{s.ticker} !", "-", "-", f"error: {s.error}", "-", "-", "-", "-", "-", "-", s.ticker)
+            table.add_row(f"{s.ticker} !", "-", "-", f"err: {s.error}", "-", "-", "-", "-", "-", "-", "-", "-")
             continue
 
         # Spot price cell is colored based on where it sits vs the max
@@ -864,11 +946,14 @@ def print_table(snapshots: list[OptionSnapshot]) -> None:
 
         strike_label = f"{s.atm_strike:g}*" if s.strike_is_override else f"{s.atm_strike:g}"
 
+        call_max_6mo_label = _compact_oi_label(s.max_oi_call_6mo)
+        put_max_6mo_label = _compact_oi_label(s.max_oi_put_6mo)
+
         # ATR isn't a bullish/bearish lean like the other columns -- it's
         # a volatility gauge -- so it's shown plain, uncolored, unlike
         # PCR/IV/BMI/hotspot above.
         atr_label = (
-            f"${s.atr:.2f} ({s.atr_percentile:.0f}%ile)"
+            f"${s.atr:.2f}\n({s.atr_percentile:.0f}%ile)"
             if s.atr is not None and s.atr_percentile is not None
             else "-"
         )
@@ -882,12 +967,33 @@ def print_table(snapshots: list[OptionSnapshot]) -> None:
             iv_cell,
             vol_oi_cell,
             bmi_cell,
-            f"{s.max_pain_low:g}-{s.max_pain_high:g}" if s.max_pain_low is not None else "-",
+            f"{s.max_pain_low:g}-\n{s.max_pain_high:g}" if s.max_pain_low is not None else "-",
             atr_label,
-            s.ticker,
+            call_max_6mo_label,
+            put_max_6mo_label,
         )
 
     console.print(table)
+
+
+def _compact_oi_label(entry: Optional[tuple[float, int, str]]) -> str:
+    """
+    Formats a (strike, OI, expiry) tuple from _scan_max_oi_across_expiries()
+    into a narrow 2-line cell: "$STRIKE  OIk" on top, expiry (dd-MM-yyyy)
+    below. Compacting OI to "k" notation is what lets these two columns
+    fit in a wide table without blowing out its total width -- see
+    print_table() docstring.
+    """
+    if entry is None:
+        return "-"
+    strike, oi, expiry = entry
+    oi_label = f"{oi / 1000:.1f}k" if oi >= 1000 else str(oi)
+    # expiry comes in as "YYYY-MM-DD" from yfinance; reformat to dd-MM-yyyy.
+    try:
+        expiry_label = datetime.strptime(expiry, "%Y-%m-%d").strftime("%d-%m-%Y")
+    except ValueError:
+        expiry_label = expiry
+    return f"${strike:g} {oi_label} OI\n{expiry_label}"
 
 
 # ---------------------------------------------------------------------
@@ -896,7 +1002,7 @@ def print_table(snapshots: list[OptionSnapshot]) -> None:
 def main():
     """Main entry point with CLI argument handling."""
     import time
-    
+
     # Determine tickers source
     universe = load_market_universe()
     use_test = "--test" in sys.argv
