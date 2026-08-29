@@ -9,12 +9,33 @@ if [ ! -d "$DATA_DIR" ]; then
     exit 1
 fi
 
-echo "Clearing files in $DATA_DIR (preserving screener_MON, screener_TUE, etc. and preview_dark.html)..."
+echo "Clearing files in $DATA_DIR (preserving screener_MON.html ... screener_SUN.html and preview_dark.html)..."
 
-# Define the checked-in files to preserve
-PRESERVE_PATTERN="screener_(MON|TUE|WED|THU|FRI|SAT|SUN)|preview_dark\.html$"
+# Explicit list of checked-in files to preserve
+PRESERVE_FILES=(
+    "screener_MON.html"
+    "screener_TUE.html"
+    "screener_WED.html"
+    "screener_THU.html"
+    "screener_FRI.html"
+    "screener_SAT.html"
+    "screener_SUN.html"
+    "preview_dark.html"
+)
 
-# Find all files in data folder and delete them if they don't match the preserve pattern
-find "$DATA_DIR" -maxdepth 1 -type f -regextype posix-extended ! -regex ".*/($PRESERVE_PATTERN)" -delete
+for f in "$DATA_DIR"/*; do
+    [ -f "$f" ] || continue
+    fname="$(basename "$f")"
+    keep=false
+    for p in "${PRESERVE_FILES[@]}"; do
+        if [ "$fname" == "$p" ]; then
+            keep=true
+            break
+        fi
+    done
+    if [ "$keep" = false ]; then
+        rm -f "$f"
+    fi
+done
 
-echo "Done! Preserved base screener files (screener_MON through screener_SUN) and preview_dark.html"
+echo "Done! Preserved: ${PRESERVE_FILES[*]}"
