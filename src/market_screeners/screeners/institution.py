@@ -9,6 +9,7 @@
 import pandas as pd
 import yfinance as yf
 import pandas_ta_classic as ta
+from datetime import datetime
 
 # ---------------------------------------------------------------------------
 # CONFIG — tweak these freely
@@ -212,15 +213,32 @@ def analyze_ticker(symbol):
 
 # Main runner
 import sys
-from datetime import datetime
 from pathlib import Path
 import time
 
 from market_screeners.model.market_universe import load_market_universe
 from market_screeners.model.ticker import Ticker
+from market_screeners.service.display_service import GREEN, RESET, vjust
 from market_screeners.service.html_service import capture_output, save_html
 
 DATA_DIR = Path("data")
+
+
+def _format_signal_date(date_val, today=None) -> str:
+    """Format a signal date, highlighting dates from the current month."""
+    if hasattr(date_val, "strftime"):
+        date_str = date_val.strftime("%Y-%m-%d")
+    else:
+        date_str = str(date_val)
+        try:
+            date_val = datetime.strptime(date_str, "%Y-%m-%d")
+        except ValueError:
+            return date_str
+
+    today = today or datetime.now()
+    if date_val.year == today.year and date_val.month == today.month:
+        return f"{GREEN}{date_str}{RESET}"
+    return date_str
 
 
 def _flag_value(flag: str) -> str | None:
@@ -351,7 +369,13 @@ def main():
         print(sep.replace('-', '-'))
 
         for r in rows:
-            line = "| " + " | ".join(str(v).ljust(widths[columns[i]]) for i, v in enumerate(r)) + " |"
+            rendered = [
+                _format_signal_date(r[i]) if columns[i] == "Date" else str(r[i])
+                for i in range(len(columns))
+            ]
+            line = "| " + " | ".join(
+                vjust(rendered[i], widths[columns[i]]) for i in range(len(columns))
+            ) + " |"
             print(line)
 
         print(sep)

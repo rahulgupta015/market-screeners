@@ -1,4 +1,5 @@
 import unittest
+from datetime import datetime
 
 import pandas as pd
 
@@ -11,6 +12,7 @@ from market_screeners.screeners.institution import (
     add_vol_dryup_flag,
     add_vsa_flag,
     compute_obv_ad,
+    _format_signal_date,
 )
 
 
@@ -32,6 +34,17 @@ def synthetic_ohlcv(closes, volumes=None, high_pad=0.5, low_pad=0.5):
 
 
 class InstitutionScreenerTests(unittest.TestCase):
+    def test_current_month_signal_date_is_green(self):
+        rendered = _format_signal_date("2026-09-24", today=datetime(2026, 9, 26))
+
+        self.assertIn("2026-09-24", rendered)
+        self.assertIn("\033[92m", rendered)
+
+    def test_prior_month_signal_date_is_not_colored(self):
+        rendered = _format_signal_date("2026-08-31", today=datetime(2026, 9, 26))
+
+        self.assertEqual(rendered, "2026-08-31")
+
     def test_ant_mvp_flags_persistent_momentum_volume_and_price(self):
         # 60 flat days to warm up the 50-day volume SMA, then a strong
         # 15-day run up >20% with up-days and a volume spike on the final day.
